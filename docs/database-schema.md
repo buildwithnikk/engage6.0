@@ -1,5 +1,8 @@
 # Database schema and Supabase plan
 
+**Development runs on local PostgreSQL. Supabase is the deployment target.** The same
+migrations apply to both — see §0 below.
+
 **Phase 0 status: no migration has been written and no schema has been applied.** This document
 is the plan. The first migration (`schemes`) is written in Phase 1, after the connection
 approach below has been verified and the migration reviewed.
@@ -10,7 +13,48 @@ schema; they never create a second migration history, and Alembic is deliberatel
 
 ---
 
-## 1. Supabase Free tier — verified limits
+## 0. Two environments, one schema
+
+| | Development | Deployment |
+|---|---|---|
+| Database | **Local PostgreSQL 16** | **Supabase PostgreSQL (Free)** |
+| Setup | `./scripts/setup-local-db.sh` | Dashboard → Connect |
+| Role | `sahayak_app` — not superuser, no `BYPASSRLS` | Project credentials |
+| `DATABASE_URL` | `backend/.env`, written by the script | Deployment environment only |
+| Migrations | `supabase/migrations/`, applied with `psql` | the same files, applied with `supabase db push` |
+
+Why development is local:
+
+1. **No developer needs cloud credentials.** A shared cloud database means a shared secret, and
+   one person's experiment breaking everyone's work.
+2. **Free-tier limits and pausing stop mattering during development** — 500 MB, 5 GB egress and
+   the ~7-day pause are deployment concerns, not daily ones.
+3. **Destructive mistakes stay local.** A wrong `drop table` costs a re-run of the setup script.
+4. **It is faster** — no network round trip per query.
+
+What this does **not** change: the migration history is still `supabase/migrations/` and only
+that, the schema is identical in both, and the RLS reasoning in §4 applies to both. The local
+role was created without `BYPASSRLS` precisely so local behaviour matches the cloud.
+
+**Verified on 2026-10-28:** local PostgreSQL 16.15 connected, and `/api/v1/health` returned
+`{"status":"ok","version":"0.1.0","database":"ok","detail":null}`. The Supabase path has **not**
+been exercised yet — no project exists.
+
+### Applying a migration locally
+
+```bash
+psql "postgresql://sahayak_app@127.0.0.1:5432/sahayak_dev" -f supabase/migrations/<file>.sql
+```
+
+### Resetting the local database
+
+```bash
+dropdb sahayak_dev && ./scripts/setup-local-db.sh
+```
+
+---
+
+## 1. Supabase Free tier — verified limits (deployment)
 
 Checked against Supabase's official documentation on 2026-10-28:
 

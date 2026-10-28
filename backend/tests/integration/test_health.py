@@ -7,13 +7,6 @@ from app.core.config import get_settings
 from app.main import create_app
 
 
-@pytest.fixture(autouse=True)
-def _clear_settings_cache():
-    get_settings.cache_clear()
-    yield
-    get_settings.cache_clear()
-
-
 @pytest.fixture
 def client(monkeypatch) -> TestClient:
     """A client with no DATABASE_URL — the Phase 0 default."""

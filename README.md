@@ -66,26 +66,49 @@ cd frontend && npm run typecheck && npm run build
 
 ---
 
-## Configuring `DATABASE_URL` safely
+## Database: local for development, Supabase for deployment
 
-`DATABASE_URL` is a **secret**. It belongs in `backend/.env` only — never in `frontend/`, never
-in a `NEXT_PUBLIC_*` variable, never committed. `.gitignore` excludes `.env` files.
+Development runs against **local PostgreSQL**. Supabase is the **deployment** target. Keeping
+them separate means no developer needs cloud credentials, nobody shares a database, and the
+Free-tier limits and pausing never affect day-to-day work.
+
+`DATABASE_URL` is a **secret** either way. It belongs in `backend/.env` only — never in
+`frontend/`, never in a `NEXT_PUBLIC_*` variable, never committed. `.gitignore` excludes `.env`.
+
+### Local development
+
+```bash
+brew install postgresql@16 && brew services start postgresql@16
+```
+
+```bash
+./scripts/setup-local-db.sh
+```
+
+The script creates the `sahayak_app` role and the `sahayak_dev` database, then writes
+`DATABASE_URL` into `backend/.env`. It never prints the password, and it is safe to re-run
+(re-running rotates the password, so restart uvicorn afterwards).
+
+The role is deliberately **not** a superuser and does **not** have `BYPASSRLS`, so local
+development behaves like the deployed setup rather than silently skipping every policy.
+
+Restart the backend and reload the page — the status panel should show **Connected**.
+
+### Deployment (later)
 
 1. Create a project at [supabase.com](https://supabase.com) (Free tier).
-2. Dashboard → **Connect**. Copy the exact string; the pooler host cannot be guessed.
-3. Pick a mode: **direct** (port 5432) for a persistent server on an IPv6-capable network, or
-   the **session pooler** (port 5432, user `postgres.[PROJECT-REF]`) on an IPv4-only network —
-   Free tier has no IPv4 add-on, so a direct string will simply fail there.
-4. Add the driver prefix SQLAlchemy needs and percent-encode `&`, `#`, `?` or spaces in the
-   password:
+2. Dashboard → **Connect**, copy the exact string — the pooler host cannot be guessed.
+3. Prefer the **session pooler** (port 5432, user `postgres.[PROJECT-REF]`). The direct
+   connection is **IPv6-only** on Free tier, so it fails on an IPv4-only network.
+4. Add the `+psycopg` prefix and percent-encode `&`, `#`, `?` or spaces in the password:
 
 ```
 DATABASE_URL=postgresql+psycopg://postgres.[PROJECT-REF]:[PASSWORD]@[POOLER-HOST]:5432/postgres
 ```
 
-5. Restart uvicorn and reload the page. The status panel should show **Connected**. If it shows
-   **Unavailable**, the string or the network path is wrong — the detail message says which
-   exception class occurred, without echoing your credentials.
+5. Set it in the **deployment environment**, not in a file in the repository.
+
+The same migrations in `supabase/migrations/` apply to both.
 
 Full detail, including export and restore: [`docs/database-schema.md`](docs/database-schema.md) §7.
 
@@ -138,7 +161,7 @@ Shared contracts live in `docs/` and are reviewed by all three.
 |---|---|---|
 | 1 | Next.js starts and displays the live health result from FastAPI | ✅ verified in a browser |
 | 2 | FastAPI starts without Supabase credentials | ✅ asserted by a test |
-| 3 | Health reports the real database configuration and connection status | ✅ 3 states, asserted |
+| 3 | Health reports the real database configuration and connection status | ✅ all 3 states observed live |
 | 4 | Backend tests pass | ✅ 15 passed |
 | 5 | Frontend type-check and production build pass | ✅ both |
 | 6 | `.env.example` and `.gitignore` correct | ✅ |
@@ -147,6 +170,7 @@ Shared contracts live in `docs/` and are reviewed by all three.
 | 9 | Repository layout and migration source of truth clear | ✅ `supabase/migrations/` only |
 | 10 | No future feature silently started | ✅ a test asserts Phase 1 paths 404 |
 
-**Known gap:** no Supabase project is connected, so `database: "ok"` has never been observed on
-real infrastructure — only `unconfigured` and `unavailable` are proven. Connecting a project is
-the first step of Phase 1.
+**Known gap:** no Supabase project exists yet, so nothing has been verified against cloud
+infrastructure — in particular the session-pooler connection string and the Free-tier behaviour.
+Development is unblocked regardless, because it runs on local PostgreSQL. Creating the cloud
+project belongs with the first deployment, not with Phase 1 development.

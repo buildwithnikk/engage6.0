@@ -108,7 +108,10 @@ export function BackendStatus() {
               <Badge tone="bg-emerald-100 text-emerald-900">Reachable</Badge>
               <span className="text-sm text-[var(--muted)]">v{state.data.version}</span>
             </Row>
-            <Row label="Database (Supabase Postgres)">
+            {/* Deliberately not "Supabase Postgres": development runs on local
+                PostgreSQL and only deployment uses Supabase. Naming the vendor
+                here would be wrong half the time. */}
+            <Row label="Database (PostgreSQL)">
               <Badge tone={DB_COPY[state.data.database].tone}>
                 {DB_COPY[state.data.database].label}
               </Badge>

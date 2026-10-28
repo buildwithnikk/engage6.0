@@ -35,8 +35,9 @@ sync, profile persistence, production deployment.
 
 ## Phase 1 — Verified scheme catalogue 🔒 gated
 
-**Opens when:** Phase 0's checklist passes **and** a Supabase project exists with a verified
-connection (health reports `database: "ok"`).
+**Opens when:** Phase 0's checklist passes **and** the health endpoint reports
+`database: "ok"` — which it now does against local PostgreSQL. A Supabase project is **not** a
+prerequisite for Phase 1; it is a prerequisite for the first deployment.
 
 **Scope**
 - Research and verify a first set of schemes using `research-register.md` — each one checked

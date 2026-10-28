@@ -9,7 +9,8 @@ React + Next.js (App Router) + TypeScript
 Python FastAPI  ──────────────── owns ALL domain logic, AI, OCR, integrations
         │  SQLAlchemy 2.x + psycopg (Phase 1+)
         ▼
-Supabase PostgreSQL (Free tier)
+PostgreSQL
+        │  local in development · Supabase Free tier in deployment
         │
         ▼
 Verified scheme catalogue  →  Deterministic Python eligibility engine
@@ -134,7 +135,7 @@ to put in it.
 | Integration | State | Notes |
 |---|---|---|
 | Frontend → FastAPI | **Implemented** | `GET /api/v1/health` |
-| FastAPI → Supabase Postgres | **Prepared, not required** | Lazy, optional; app starts without it |
+| FastAPI → PostgreSQL | **Verified against local Postgres 16.15** | Lazy and optional; the app starts without it. Supabase (deployment) not yet exercised. |
 | Supabase Auth | Planned | Not in Phase 0. JWT verification approach to be chosen and tested before any private table exists. |
 | Supabase Storage | Planned | Private buckets only, when document storage is implemented |
 | AI / OCR providers | Planned | Python-side only; no provider key ever reaches the browser |

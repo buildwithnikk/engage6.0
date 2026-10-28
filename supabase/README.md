@@ -2,6 +2,14 @@
 
 **`supabase/migrations/` is the single canonical migration history for this project.**
 
+These migrations apply to **both** databases: local PostgreSQL in development and Supabase in
+deployment. Development does not use Supabase at all — see `../docs/database-schema.md` §0.
+
+```bash
+# Locally
+psql "postgresql://sahayak_app@127.0.0.1:5432/sahayak_dev" -f supabase/migrations/<file>.sql
+```
+
 SQLAlchemy models (Phase 1+) map a schema that migrations created. They never create a second
 history, and Alembic is deliberately not introduced — two competing migration tools on one
 database is how a schema becomes unreproducible.
