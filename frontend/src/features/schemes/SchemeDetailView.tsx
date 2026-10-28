@@ -84,7 +84,15 @@ export function SchemeDetailView({ slug }: { slug: string }) {
         </Link>
         <div className="mt-2 flex flex-wrap items-start justify-between gap-2">
           <h1 className="text-xl font-bold">{scheme.official_name}</h1>
-          <ReviewBadge status={scheme.review_status} />
+          <div className="flex items-center gap-2">
+            <ReviewBadge status={scheme.review_status} />
+            <Link
+              href={`/schemes/${scheme.slug}/prepare`}
+              className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700"
+            >
+              📝 Prepare Application
+            </Link>
+          </div>
         </div>
         <p className="mt-1 text-sm text-[var(--muted)]">
           {scheme.department} ·{" "}
@@ -92,6 +100,21 @@ export function SchemeDetailView({ slug }: { slug: string }) {
             ? `State scheme${scheme.state_code ? ` (${scheme.state_code})` : ""}`
             : "Central scheme"}
         </p>
+      </div>
+
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-xl border border-indigo-200 bg-indigo-50/70 p-4">
+        <div>
+          <h3 className="text-sm font-semibold text-indigo-950">Assisted Application Preparation</h3>
+          <p className="text-xs text-indigo-800">
+            Check your required documents, answer questions, and verify eligibility step-by-step before visiting the official portal.
+          </p>
+        </div>
+        <Link
+          href={`/schemes/${scheme.slug}/prepare`}
+          className="whitespace-nowrap rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow hover:bg-indigo-700"
+        >
+          Prepare Application →
+        </Link>
       </div>
 
       <DemoNotice status={scheme.review_status} />

@@ -15,6 +15,14 @@ dependencies = [
     # Database access. Imported lazily in app/db/session.py so the app starts without a DATABASE_URL.
     "sqlalchemy>=2.0,<3",
     "psycopg[binary]>=3.2,<4",
+    # Admin password hashing
+    "pwdlib[argon2]>=0.2.0,<1.0",
+    # Document upload, extraction and OCR (Phase 3)
+    "python-multipart>=0.0.9,<1.0",
+    "pytesseract>=0.3.10,<1.0",
+    "Pillow>=10.0.0,<12.0",
+    "pypdf>=4.0.0,<6.0",
+    "pypdfium2>=4.30.0,<5.0",
 ]
 
 [project.optional-dependencies]

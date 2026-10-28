@@ -1,19 +1,19 @@
 # Architecture
 
-**Status:** Phase 0 active. Only the health path below is implemented.
+**Status:** Phase 2 active. Scheme catalogue, deterministic eligibility engine, admin authentication, scheme curation, and audit trail are implemented.
 
 ```
 React + Next.js (App Router) + TypeScript
-        │  fetch, typed client, JSON only
+        │  fetch, typed client, credentials: "include", JSON only
         ▼
-Python FastAPI  ──────────────── owns ALL domain logic, AI, OCR, integrations
-        │  SQLAlchemy 2.x + psycopg (Phase 1+)
+Python FastAPI  ──────────────── owns ALL domain logic, auth, AI, OCR, integrations
+        │  SQLAlchemy 2.x + psycopg
         ▼
 PostgreSQL
         │  local in development · Supabase Free tier in deployment
         │
-        ▼
-Verified scheme catalogue  →  Deterministic Python eligibility engine
+        ├── Verified scheme catalogue  →  Deterministic Python eligibility engine
+        └── Admin curation dashboard   →  Argon2 auth, session tokens, audit logging
 ```
 
 ## The division of responsibility
@@ -74,23 +74,22 @@ Phase 0 condition and the UI says exactly that.
 |---|---|---|
 | `frontend/src/app/` | App Router routes, layout, global styles | A |
 | `frontend/src/components/layout/` | Presentational shell (header, footer) | A |
+| `frontend/src/features/admin/` | Admin auth context, navbar, status badges, guard | A |
+| `frontend/src/features/schemes/` | Scheme list, detail, eligibility questionnaire | A |
 | `frontend/src/features/system/` | The system-status feature | A |
 | `frontend/src/lib/api-client.ts` | The **only** place that knows the backend URL and performs fetches | A |
 | `frontend/src/types/api.ts` | Hand-written mirrors of the backend schemas | A + C |
 | `backend/app/main.py` | App factory, CORS, router registration | C |
 | `backend/app/core/config.py` | Typed settings from the environment | C |
-| `backend/app/api/v1/` | Thin HTTP routes. No domain logic. | C |
+| `backend/app/api/v1/` | Thin HTTP routes (health, schemes, eligibility, admin). | C |
 | `backend/app/schemas/` | Pydantic request/response models | C |
-| `backend/app/db/session.py` | Optional, lazy database access | C |
-| `backend/app/services/` | **Phase 1+.** Domain logic: scheme catalogue, eligibility | B |
-| `backend/tests/unit/` | No I/O, no network | B + C |
+| `backend/app/db/session.py` | Database access & session fixtures | C |
+| `backend/app/services/` | Domain logic: scheme catalogue, eligibility, admin auth, curation | B |
+| `backend/tests/unit/` | No I/O, no network (unit tests) | B + C |
 | `backend/tests/integration/` | Through the ASGI app with TestClient | C |
 | `supabase/migrations/` | The single canonical migration history | C |
 | `docs/` | Shared contracts and decisions, reviewed by all three | all |
 | `prototype/` | **Superseded.** Earlier Next.js-only prototype, excluded from the build. | — |
-
-`backend/app/services/` does not exist yet. It is created in Phase 1, when there is a service
-to put in it.
 
 ## Component boundaries
 

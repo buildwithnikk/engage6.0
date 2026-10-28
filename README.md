@@ -3,18 +3,21 @@
 A multilingual citizen-assistance platform for discovering government schemes, checking
 eligibility, understanding official documents and preparing forms.
 
-**Current phase: Phase 1 — scheme catalogue and eligibility.** The first vertical slice works
-end to end: Next.js discovery page → FastAPI → PostgreSQL → deterministic Python evaluator →
-an explained result. Later phases are gated in [`docs/phase-plan.md`](docs/phase-plan.md).
+**Current phase: Phase 2 — admin dashboard and scheme curation.** The curation workflow works
+end to end: Next.js admin portal → FastAPI → PostgreSQL → Argon2 auth + session cookies + CSRF
+protection + deterministic scheme review state machine + audit trail. Later phases are gated in
+[`docs/phase-plan.md`](docs/phase-plan.md).
 
-**The public catalogue is empty until real schemes are verified.** Seeded records are synthetic
-and deliberately unverified, so they are hidden from public responses. That is the design, not
-a bug — see "Seed data" below.
+**The public catalogue serves verified schemes only.** Seeded records are synthetic and
+deliberately unverified. Admin users can create drafts, edit entries, submit them for review, and
+verified reviewers can inspect and verify against official department sources before publication.
 
 ```
 React + Next.js + TypeScript  →  Python FastAPI  →  Supabase PostgreSQL
                                         ↓
                       verified scheme catalogue → deterministic eligibility engine
+                                        ↓
+                       admin dashboard & audit  →  Argon2 auth & review workflow
 ```
 
 Python owns all domain logic, AI, OCR and database access. TypeScript owns the UI and
@@ -240,30 +243,45 @@ Shared contracts live in `docs/` and are reviewed by all three.
 
 ---
 
-## Phase 1 exit checklist
+## Phase 2 exit checklist
 
 | # | Item | State |
 |---|---|---|
-| 1 | Local PostgreSQL configured by environment variable | ✅ `./scripts/setup-local-db.sh` |
-| 2 | Migration creates `schemes`; the app never auto-creates it | ✅ no `create_all` anywhere |
-| 3 | The API reads real rows from PostgreSQL | ✅ verified in a browser |
-| 4 | Public endpoints expose verified schemes only | ✅ 6 tests, list + detail + eligibility |
-| 5 | Eligibility is deterministic, explainable, stateless | ✅ 40 unit + 20 integration tests |
-| 6 | The Next.js UI uses the real API | ✅ no mock path exists in the client |
-| 7 | Seed data is visibly synthetic and never falsely verified | ✅ guard raises; constraint backs it |
-| 8 | Backend tests pass; frontend typecheck and build pass | ✅ 121 passed · typecheck · build |
-| 9 | Phase 0 health behaviour intact | ✅ its tests still pass unchanged |
-| 10 | Docs give exact run/migration/test steps and state what is missing | ✅ this file + `docs/` |
+| 1 | Local PostgreSQL migrations for admin users, sessions and audit events | ✅ `20261028130000_create_admin_and_audit.sql` |
+| 2 | CLI first-admin bootstrap without open registration or default credentials | ✅ `python -m app.cli create-admin` |
+| 3 | Argon2 password hashing via `pwdlib[argon2]` & opaque SHA-256 session tokens | ✅ unit & integration tests pass |
+| 4 | HttpOnly cookie sessions, CSRF token validation & Origin allowlist | ✅ tested with TestClient |
+| 5 | Role-based authorization (`editor`, `reviewer`, `admin`) enforced in FastAPI | ✅ tested across all endpoints |
+| 6 | Scheme state machine: draft → needs_review → verified / archived | ✅ tested with change-request reasons |
+| 7 | Verification invalidation: editing verified schemes demotes & hides them | ✅ verified in tests & UI |
+| 8 | Optimistic concurrency protection against stale edits (HTTP 409) | ✅ tested with `expected_updated_at` |
+| 9 | Next.js admin portal (`/admin`, `/admin/schemes`, `/admin/audit`) | ✅ responsive UI, typecheck & build pass |
+| 10 | Security audit trail recording mutations without secret/personal data leakage | ✅ verified in tests |
+| 11 | Phase 1 public discovery and eligibility tests still pass | ✅ 131 tests passing |
 
-### What is NOT implemented
+### Admin bootstrapping and local usage
 
-- **No real scheme data.** The catalogue holds four synthetic records. Verifying real schemes
-  against official sources is Phase 2.
-- No authentication, no accounts, no saved profiles.
-- No document upload, OCR, PDF generation, voice, translation, complaints, maps or dashboards.
-- No cloud deployment. Development runs on local PostgreSQL.
-- The rule format cannot express `or`, nested conditions, fact-to-fact comparisons, dates or
-  durations — see the limitations section of `docs/eligibility-rules.md`.
+```bash
+# 1. Migrate database
+./scripts/db.sh migrate
+
+# 2. Bootstrap first admin (interactive, no echo)
+cd backend && source .venv/bin/activate
+python -m app.cli create-admin --email "admin@example.gov.in" --role admin
+
+# 3. Start backend & frontend
+# Backend: uvicorn app.main:app --reload --port 8000
+# Frontend: npm run dev
+# Visit http://localhost:3000/admin/login
+```
+
+### What is NOT implemented (Explicitly out of scope for Phase 2)
+
+- No citizen accounts, saved citizen profiles, or citizen registration (Phase 4).
+- No document upload, OCR or file storage (Phase 3).
+- No AI/LLM calls, voice, translation, or assisted forms (Phase 5).
+- No civic complaints, maps, or transport passes (Phase 6+).
+- No cloud deployment; local PostgreSQL development only.
 
 ### Moving to hosted PostgreSQL later
 

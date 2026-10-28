@@ -182,6 +182,54 @@ with RLS enabled and no permissive policy, writes are denied by default.
 
 ---
 
+## 3b. Phase 2 Admin Tables (implemented)
+
+Created by `supabase/migrations/20261028130000_create_admin_and_audit.sql`.
+
+### `admin_users`
+Stores administrative staff credentials and roles. Passwords use Argon2id hashes.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `uuid` | Primary key, `default gen_random_uuid()` |
+| `email` | `text` | Normalized, case-insensitive unique index on `lower(trim(email))` |
+| `password_hash` | `text` | Argon2id hash |
+| `role` | `text` | Check constraint: `role in ('admin', 'reviewer', 'editor')` |
+| `is_active` | `boolean` | `default true` |
+| `last_login_at` | `timestamptz` null | Set on successful authentication |
+| `created_at` | `timestamptz` | `default now()` |
+| `updated_at` | `timestamptz` | `default now()`, maintained by trigger |
+
+### `admin_sessions`
+Revocable administrative sessions. Raw session tokens are never stored; only SHA-256 hashes are persisted.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `uuid` | Primary key |
+| `admin_user_id` | `uuid` | Foreign key to `admin_users(id)` with `on delete cascade` |
+| `token_hash` | `text` | Unique SHA-256 hash of raw session token |
+| `csrf_token_hash` | `text` | SHA-256 hash of raw CSRF token |
+| `expires_at` | `timestamptz` | Expiration time (8 hours) |
+| `revoked_at` | `timestamptz` null | Timestamp of explicit revocation (logout) |
+| `created_at` | `timestamptz` | `default now()` |
+
+### `audit_events`
+Append-only log of catalogue modifications and security events. Contains no secrets, tokens or citizen answers.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `uuid` | Primary key |
+| `actor_admin_id` | `uuid` null | Foreign key to `admin_users(id)` with `on delete set null` |
+| `action` | `text` | e.g. `scheme_created`, `scheme_verified`, `changes_requested`, `admin_login` |
+| `resource_type` | `text` | e.g. `scheme`, `admin_session`, `admin_user` |
+| `resource_id` | `uuid` null | ID of target entity |
+| `metadata` | `jsonb` | Non-sensitive JSON details (checked to be a JSON object) |
+| `created_at` | `timestamptz` | `default now()` |
+
+RLS is enabled on `admin_users`, `admin_sessions`, and `audit_events` with no permissive policies, ensuring direct Supabase clients are denied by default. Authorization is enforced in FastAPI services.
+
+---
+
 ## 4. Authentication and data isolation — the part that is easy to get wrong
 
 Two different mechanisms, often confused:

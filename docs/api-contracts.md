@@ -11,12 +11,24 @@ Interactive docs while the backend runs: `http://localhost:8000/docs`
 | `/api/v1/schemes` | GET | **Implemented (Phase 1)** |
 | `/api/v1/schemes/{scheme_id}` | GET | **Implemented (Phase 1)** — accepts UUID *or* slug |
 | `/api/v1/eligibility/check` | POST | **Implemented (Phase 1)** |
+| `/api/v1/admin/auth/login` | POST | **Implemented (Phase 2)** — establishes session cookie |
+| `/api/v1/admin/auth/logout` | POST | **Implemented (Phase 2)** — revokes session |
+| `/api/v1/admin/me` | GET | **Implemented (Phase 2)** — identity & CSRF token |
+| `/api/v1/admin/overview` | GET | **Implemented (Phase 2)** — counts by review status |
+| `/api/v1/admin/schemes` | GET | **Implemented (Phase 2)** — all statuses, paginated |
+| `/api/v1/admin/schemes` | POST | **Implemented (Phase 2)** — create draft (Editor+) |
+| `/api/v1/admin/schemes/{id}` | GET | **Implemented (Phase 2)** — admin scheme detail |
+| `/api/v1/admin/schemes/{id}` | PATCH | **Implemented (Phase 2)** — update with 409 guard |
+| `/api/v1/admin/schemes/{id}/submit-review` | POST | **Implemented (Phase 2)** — draft -> needs_review |
+| `/api/v1/admin/schemes/{id}/verify` | POST | **Implemented (Phase 2)** — verify (Reviewer+) |
+| `/api/v1/admin/schemes/{id}/request-changes` | POST | **Implemented (Phase 2)** — back to draft (Reviewer+) |
+| `/api/v1/admin/schemes/{id}/archive` | POST | **Implemented (Phase 2)** — archive (Reviewer+) |
+| `/api/v1/admin/audit-events` | GET | **Implemented (Phase 2)** — audit trail (Admin only) |
 
-That is the whole public API.
-`backend/tests/integration/test_health.py::test_openapi_documents_exactly_the_phase_1_surface`
-asserts this exact list, so a new endpoint cannot appear without the list changing — and
-`test_no_phase_2_endpoint_is_exposed_yet` asserts that `/documents`, `/complaints`, `/profiles`
-and `/auth` still 404.
+`backend/tests/integration/test_health.py::test_openapi_documents_exactly_the_phase_2_surface`
+asserts this exact surface, so a new endpoint cannot appear without being documented — and
+`test_no_phase_3_endpoint_is_exposed_yet` asserts that `/documents`, `/complaints`, `/profiles`
+and `/auth` (citizen auth) still return 404.
 
 **The visibility rule, which applies to all three scheme endpoints:** a public caller sees
 `review_status = 'verified'` records only. Draft and needs-review rows are unchecked research.
@@ -259,8 +271,78 @@ curl -s -X POST http://localhost:8000/api/v1/eligibility/check \
 
 ---
 
+## Phase 2 — Admin and catalogue curation contracts
+
+All endpoints require cookie-based session authentication (`sahayak_admin_session`) and state-changing
+methods require `X-CSRF-Token` plus Origin verification.
+
+### Authentication Endpoints
+
+#### POST /api/v1/admin/auth/login
+- **Request:** `{ "email": string, "password": string }`
+- **Response `200 OK`:** `{ "user": AdminUserSummary, "csrf_token": string }`
+- **Cookies:** Sets `sahayak_admin_session` HttpOnly cookie.
+- **Errors:** 401 (invalid credentials), 403 (disabled account), 429 (rate limit exceeded).
+
+#### POST /api/v1/admin/auth/logout
+- **Headers:** `X-CSRF-Token`
+- **Response `200 OK`:** `{ "status": "ok" }`
+- **Cookies:** Clears session cookie.
+
+#### GET /api/v1/admin/me
+- **Response `200 OK`:** `{ "user": AdminUserSummary, "csrf_token": string }`
+- **Behavior:** Verifies active session, rotates/issues fresh CSRF token.
+
+### Scheme Curation Endpoints
+
+#### GET /api/v1/admin/overview
+- **Response `200 OK`:** `{ "total": int, "draft": int, "needs_review": int, "verified": int, "archived": int }`
+
+#### GET /api/v1/admin/schemes
+- **Query:** `q`, `review_status`, `jurisdiction`, `state_code`, `page`, `page_size`
+- **Response `200 OK`:** `{ "items": AdminSchemeSummary[], "total": int, "page": int, "page_size": int }`
+
+#### POST /api/v1/admin/schemes (Editor+)
+- **Headers:** `X-CSRF-Token`
+- **Request:** `AdminSchemeCreate`
+- **Response `201 Created`:** `AdminSchemeDetail` in `draft` status.
+
+#### GET /api/v1/admin/schemes/{id}
+- **Response `200 OK`:** `AdminSchemeDetail` including raw `eligibility_rules` and `updated_at`.
+
+#### PATCH /api/v1/admin/schemes/{id} (Editor+)
+- **Headers:** `X-CSRF-Token`
+- **Request:** `AdminSchemeUpdate` (including `expected_updated_at` for concurrency guard).
+- **Response `200 OK`:** `AdminSchemeDetail`. If scheme was `verified`, demotes to `needs_review`.
+- **Errors:** 409 Conflict if modified concurrently, 422 for validation failures.
+
+#### POST /api/v1/admin/schemes/{id}/submit-review (Editor+)
+- **Headers:** `X-CSRF-Token`
+- **Transition:** `draft` -> `needs_review`.
+
+#### POST /api/v1/admin/schemes/{id}/verify (Reviewer+)
+- **Headers:** `X-CSRF-Token`
+- **Transition:** `needs_review` -> `verified`. Sets `verified_at` and makes visible publicly.
+
+#### POST /api/v1/admin/schemes/{id}/request-changes (Reviewer+)
+- **Headers:** `X-CSRF-Token`
+- **Request:** `{ "reason": string }`
+- **Transition:** `needs_review` -> `draft`. Logs reason in audit event.
+
+#### POST /api/v1/admin/schemes/{id}/archive (Reviewer+)
+- **Headers:** `X-CSRF-Token`
+- **Transition:** `archived`. Delists scheme from public view without deletion.
+
+### Audit Trail
+
+#### GET /api/v1/admin/audit-events (Admin only)
+- **Query:** `page`, `page_size`, `resource_id`
+- **Response `200 OK`:** `{ "items": AuditEventSummary[], "total": int, "page": int, "page_size": int }`
+- **Errors:** 403 Forbidden for `editor` or `reviewer`.
+
+---
+
 ## Planned — later phases (not implemented)
 
-Documents, complaints, profiles and authentication are gated in
-[phase-plan.md](phase-plan.md). Nothing is registered for them, and a test asserts those paths
-return 404.
+Phase 3+ (documents, complaints, citizen profiles and citizen auth) are gated in
+[phase-plan.md](phase-plan.md). A test asserts those paths return 404.

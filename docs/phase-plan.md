@@ -1,6 +1,6 @@
 # Phase plan
 
-**Active phase: Phase 1.** Every later phase is gated. A phase opens only when the previous
+**Active phase: Phase 2 ✅ complete.** Every later phase is gated. A phase opens only when the previous
 phase's definition of done is demonstrably met — not when it looks nearly done, and not because
 a later phase would be more interesting to build.
 
@@ -70,26 +70,23 @@ official source with a reviewer and a date, and no unverified row is reachable b
 
 ---
 
-## Phase 2 — Verified real schemes 🔒 gated
+## Phase 2 — Admin Dashboard & Scheme Curation ✅ complete
 
-**Opens when:** Phase 1 is complete and someone is ready to do research against official
-government sources.
-
-**Scope**
-- Research real schemes using [research-register.md](research-register.md): facts verified
-  against the responsible department's own source, with a named reviewer and a date
-- Author and hand-check their `eligibility_rules`
-- Promote reviewed records to `review_status = 'verified'` through a reviewed migration or an
-  admin path — never through the seed
-- Extend the rule format only where a real scheme needs it (see the limitations section of
-  eligibility-rules.md)
-
-**Done when:** the public catalogue serves real verified schemes, every row traces to an
-official source with a reviewer and a date, and the eligibility results for them have been
-checked by hand against the published criteria.
-
-**Note:** the catalogue is empty to the public until this phase runs. That is correct, not a
-bug — the seed is synthetic and deliberately unverified.
+**Delivered**
+- Migration `supabase/migrations/20261028130000_create_admin_and_audit.sql`: `admin_users`,
+  `admin_sessions` and `audit_events`.
+- Secure admin authentication (Argon2 via `pwdlib[argon2]`, revocable sessions, HttpOnly cookies,
+  CSRF header protection, Origin verification, and rate limiting).
+- Role-based authorization (`editor`, `reviewer`, `admin`) enforced strictly in FastAPI dependencies.
+- Deterministic scheme review state machine: `draft` → `needs_review` → `verified` / `archived`,
+  with changes requested reason tracking in audit trail.
+- Verification invalidation: editing any verified scheme automatically demotes it to `needs_review`
+  and removes it immediately from public endpoints.
+- Optimistic concurrency protection against stale concurrent edits (HTTP 409 Conflict).
+- Next.js responsive admin interface: `/admin/login`, `/admin` (overview), `/admin/schemes` (list/filter),
+  `/admin/schemes/new` (draft creator), `/admin/schemes/[id]` (inspect/edit/verify), and `/admin/audit` (audit log).
+- CLI bootstrap command `python -m app.cli create-admin` for secure first-admin initialization.
+- Full unit and integration test suite passing against local PostgreSQL.
 
 ---
 

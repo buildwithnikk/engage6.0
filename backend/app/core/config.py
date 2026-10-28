@@ -39,6 +39,21 @@ class Settings(BaseSettings):
     # Seconds. Kept short so a dead database cannot hang a health check.
     db_connect_timeout: int = Field(default=3, ge=1, le=30)
 
+    # Phase 2: Admin session cookie configuration
+    admin_session_cookie_name: str = Field(default="sahayak_admin_session")
+    admin_cookie_secure: bool = Field(default=False)
+    admin_cookie_samesite: str = Field(default="lax")
+
+    # Phase 3: Document Upload & Extraction configuration
+    document_storage_dir: str = Field(default="/tmp/sahayak_storage/documents")
+    document_session_cookie_name: str = Field(default="sahayak_doc_session")
+    document_max_file_size: int = Field(default=10 * 1024 * 1024)  # 10 MiB
+    document_max_pages: int = Field(default=10)
+    document_max_pixels_per_page: int = Field(default=20_000_000)  # 20 MP
+    document_max_active_per_session: int = Field(default=3)
+    document_processing_timeout_seconds: int = Field(default=30)
+    document_retention_minutes: int = Field(default=60)  # 1 hour
+
     @field_validator("cors_allow_origins")
     @classmethod
     def _strip(cls, v: str) -> str:

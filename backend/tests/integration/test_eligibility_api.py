@@ -170,7 +170,21 @@ class TestStatelessness:
                 text("select tablename from pg_tables where schemaname = 'public'")
             )
         }
-        assert tables == {"schemes"}
+        # In Phase 6, government_sources and import_candidates exist for source curation,
+        # but no persistent citizen profiles or citizen accounts exist.
+        assert tables == {
+            "schemes",
+            "admin_users",
+            "admin_sessions",
+            "audit_events",
+            "document_sessions",
+            "documents",
+            "document_extractions",
+            "document_jobs",
+            "preparation_drafts",
+            "government_sources",
+            "import_candidates",
+        }
 
     def test_the_scheme_row_is_not_mutated_by_a_check(self, client, scheme, db_session):
         before = scheme.updated_at

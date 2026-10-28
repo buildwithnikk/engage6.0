@@ -64,6 +64,8 @@ When a later phase does store something:
 | Secret | Where it may exist |
 |---|---|
 | `DATABASE_URL` | Backend environment only |
+| Admin session tokens | Raw in HttpOnly cookie; SHA-256 hash in database; never logged |
+| Admin passwords | Argon2id hash only in database; never logged or returned |
 | Supabase `service_role` key | Backend environment only — it **bypasses RLS** |
 | Supabase JWT secret | Backend environment only |
 | AI provider keys | Backend environment only |

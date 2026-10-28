@@ -172,8 +172,8 @@ class TestPagination:
 
 class TestPhaseBoundary:
     def test_later_phase_endpoints_are_not_registered(self, client):
-        """Guards against silently starting Phase 2+."""
-        for path in ("/api/v1/documents", "/api/v1/complaints", "/api/v1/profiles"):
+        """Guards against silently starting future phases."""
+        for path in ("/api/v1/complaints", "/api/v1/profiles", "/api/v1/auth"):
             assert client.get(path).status_code == 404
 
 

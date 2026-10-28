@@ -15,6 +15,29 @@ import {
   type SchemeListResponse,
   type SchemeQuery,
   type AnswerValue,
+  type LoginRequest,
+  type LoginResponse,
+  type MeResponse,
+  type AdminOverviewResponse,
+  type AdminSchemeDetail,
+  type AdminSchemeListResponse,
+  type AdminSchemeQuery,
+  type AdminSchemeCreate,
+  type AdminSchemeUpdate,
+  type AuditEventsResponse,
+  type DocumentSessionResponse,
+  type DocumentExtractionResponse,
+  type PreparationDraftResponse,
+  type PreparationDraftCreateRequest,
+  type PreparationDraftUpdateRequest,
+  type PreferencesResponse,
+  type UserPreferences,
+  type LocationMetadataResponse,
+  type GovernmentSourceDetail,
+  type GovernmentSourceListResponse,
+  type GovernmentSourceCreate,
+  type ImportCandidateListResponse,
+  type PromoteCandidateResponse,
 } from "@/types/api";
 
 /** Trailing slashes are stripped so `${base}/api/v1/health` is always well formed. */
@@ -31,7 +54,12 @@ function baseUrl(): string {
 
 const DEFAULT_TIMEOUT_MS = 5000;
 
-type RequestInitLite = { method?: "GET" | "POST"; body?: unknown };
+type RequestInitLite = {
+  method?: "GET" | "POST" | "PATCH" | "DELETE" | "PUT";
+  body?: unknown;
+  headers?: Record<string, string>;
+  credentials?: RequestCredentials;
+};
 
 async function request<T>(
   path: string,
@@ -50,8 +78,10 @@ async function request<T>(
       headers: {
         Accept: "application/json",
         ...(init.body === undefined ? {} : { "Content-Type": "application/json" }),
+        ...init.headers,
       },
       body: init.body === undefined ? undefined : JSON.stringify(init.body),
+      credentials: init.credentials ?? "same-origin",
       // These are live reads; a cached answer would misreport the real state.
       cache: "no-store",
     });
@@ -163,3 +193,327 @@ export async function checkEligibility(
   }
   return body as EligibilityResponse;
 }
+
+/* ------------------------------------------------------------------ Phase 2 Admin */
+
+export async function adminLogin(payload: LoginRequest): Promise<LoginResponse> {
+  return request<LoginResponse>("/api/v1/admin/auth/login", {
+    method: "POST",
+    body: payload,
+    credentials: "include",
+  });
+}
+
+export async function adminLogout(csrfToken?: string): Promise<{ status: string }> {
+  return request<{ status: string }>("/api/v1/admin/auth/logout", {
+    method: "POST",
+    headers: csrfToken ? { "X-CSRF-Token": csrfToken } : {},
+    credentials: "include",
+  });
+}
+
+export async function getAdminMe(): Promise<MeResponse> {
+  return request<MeResponse>("/api/v1/admin/me", {
+    method: "GET",
+    credentials: "include",
+  });
+}
+
+export async function getAdminOverview(): Promise<AdminOverviewResponse> {
+  return request<AdminOverviewResponse>("/api/v1/admin/overview", {
+    method: "GET",
+    credentials: "include",
+  });
+}
+
+export async function listAdminSchemes(
+  query: AdminSchemeQuery = {},
+): Promise<AdminSchemeListResponse> {
+  const params = new URLSearchParams();
+  if (query.q?.trim()) params.set("q", query.q.trim());
+  if (query.review_status) params.set("review_status", query.review_status);
+  if (query.jurisdiction) params.set("jurisdiction", query.jurisdiction);
+  if (query.state_code?.trim()) params.set("state_code", query.state_code.trim().toUpperCase());
+  if (query.page) params.set("page", String(query.page));
+  if (query.page_size) params.set("page_size", String(query.page_size));
+
+  const suffix = params.toString() ? `?${params}` : "";
+  return request<AdminSchemeListResponse>(`/api/v1/admin/schemes${suffix}`, {
+    method: "GET",
+    credentials: "include",
+  });
+}
+
+export async function getAdminScheme(id: string): Promise<AdminSchemeDetail> {
+  return request<AdminSchemeDetail>(`/api/v1/admin/schemes/${encodeURIComponent(id)}`, {
+    method: "GET",
+    credentials: "include",
+  });
+}
+
+export async function createAdminScheme(
+  payload: AdminSchemeCreate,
+  csrfToken: string,
+): Promise<AdminSchemeDetail> {
+  return request<AdminSchemeDetail>("/api/v1/admin/schemes", {
+    method: "POST",
+    body: payload,
+    headers: { "X-CSRF-Token": csrfToken },
+    credentials: "include",
+  });
+}
+
+export async function updateAdminScheme(
+  id: string,
+  payload: AdminSchemeUpdate,
+  csrfToken: string,
+): Promise<AdminSchemeDetail> {
+  return request<AdminSchemeDetail>(`/api/v1/admin/schemes/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: payload,
+    headers: { "X-CSRF-Token": csrfToken },
+    credentials: "include",
+  });
+}
+
+export async function submitSchemeReview(
+  id: string,
+  csrfToken: string,
+): Promise<AdminSchemeDetail> {
+  return request<AdminSchemeDetail>(
+    `/api/v1/admin/schemes/${encodeURIComponent(id)}/submit-review`,
+    {
+      method: "POST",
+      headers: { "X-CSRF-Token": csrfToken },
+      credentials: "include",
+    },
+  );
+}
+
+export async function verifyScheme(id: string, csrfToken: string): Promise<AdminSchemeDetail> {
+  return request<AdminSchemeDetail>(`/api/v1/admin/schemes/${encodeURIComponent(id)}/verify`, {
+    method: "POST",
+    headers: { "X-CSRF-Token": csrfToken },
+    credentials: "include",
+  });
+}
+
+export async function requestSchemeChanges(
+  id: string,
+  reason: string,
+  csrfToken: string,
+): Promise<AdminSchemeDetail> {
+  return request<AdminSchemeDetail>(
+    `/api/v1/admin/schemes/${encodeURIComponent(id)}/request-changes`,
+    {
+      method: "POST",
+      body: { reason },
+      headers: { "X-CSRF-Token": csrfToken },
+      credentials: "include",
+    },
+  );
+}
+
+export async function archiveScheme(id: string, csrfToken: string): Promise<AdminSchemeDetail> {
+  return request<AdminSchemeDetail>(`/api/v1/admin/schemes/${encodeURIComponent(id)}/archive`, {
+    method: "POST",
+    headers: { "X-CSRF-Token": csrfToken },
+    credentials: "include",
+  });
+}
+
+export async function listAuditEvents(
+  page = 1,
+  pageSize = 20,
+  resourceId?: string,
+): Promise<AuditEventsResponse> {
+  const params = new URLSearchParams({
+    page: String(page),
+    page_size: String(pageSize),
+  });
+  if (resourceId) params.set("resource_id", resourceId);
+
+  return request<AuditEventsResponse>(`/api/v1/admin/audit-events?${params}`, {
+    method: "GET",
+    credentials: "include",
+  });
+}
+
+/* ------------------------------------------------------------------ Phase 3 & 4: Sessions & Preparations */
+
+export async function initDocumentSession(): Promise<DocumentSessionResponse> {
+  return request<DocumentSessionResponse>("/api/v1/document-sessions", {
+    method: "POST",
+    credentials: "include",
+  });
+}
+
+export async function getCurrentDocumentSession(): Promise<DocumentSessionResponse> {
+  return request<DocumentSessionResponse>("/api/v1/document-sessions/current", {
+    method: "GET",
+    credentials: "include",
+  });
+}
+
+export async function deleteDocumentSession(csrfToken?: string): Promise<void> {
+  await request<void>("/api/v1/document-sessions/current", {
+    method: "DELETE",
+    headers: csrfToken ? { "X-CSRF-Token": csrfToken } : undefined,
+    credentials: "include",
+  });
+}
+
+export async function getDocumentExtraction(documentId: string): Promise<DocumentExtractionResponse> {
+  return request<DocumentExtractionResponse>(`/api/v1/documents/${encodeURIComponent(documentId)}/extraction`, {
+    method: "GET",
+    credentials: "include",
+  });
+}
+
+export async function createPreparationDraft(
+  payload: PreparationDraftCreateRequest,
+  csrfToken?: string,
+): Promise<PreparationDraftResponse> {
+  return request<PreparationDraftResponse>("/api/v1/preparations", {
+    method: "POST",
+    body: payload,
+    headers: csrfToken ? { "X-CSRF-Token": csrfToken } : undefined,
+    credentials: "include",
+  });
+}
+
+export async function getPreparationDraft(draftId: string): Promise<PreparationDraftResponse> {
+  return request<PreparationDraftResponse>(`/api/v1/preparations/${encodeURIComponent(draftId)}`, {
+    method: "GET",
+    credentials: "include",
+  });
+}
+
+export async function updatePreparationDraft(
+  draftId: string,
+  payload: PreparationDraftUpdateRequest,
+  csrfToken?: string,
+): Promise<PreparationDraftResponse> {
+  return request<PreparationDraftResponse>(`/api/v1/preparations/${encodeURIComponent(draftId)}`, {
+    method: "PATCH",
+    body: payload,
+    headers: csrfToken ? { "X-CSRF-Token": csrfToken } : undefined,
+    credentials: "include",
+  });
+}
+
+export async function deletePreparationDraft(draftId: string, csrfToken?: string): Promise<void> {
+  await request<void>(`/api/v1/preparations/${encodeURIComponent(draftId)}`, {
+    method: "DELETE",
+    headers: csrfToken ? { "X-CSRF-Token": csrfToken } : undefined,
+    credentials: "include",
+  });
+}
+
+/* ------------------------------------------------------------------ Phase 5: Preferences */
+
+export async function getLocationMetadata(): Promise<LocationMetadataResponse> {
+  return request<LocationMetadataResponse>("/api/v1/preferences/metadata", {
+    method: "GET",
+    credentials: "include",
+  });
+}
+
+export async function getUserPreferences(): Promise<PreferencesResponse> {
+  return request<PreferencesResponse>("/api/v1/preferences", {
+    method: "GET",
+    credentials: "include",
+  });
+}
+
+export async function updateUserPreferences(
+  payload: Partial<UserPreferences>,
+): Promise<PreferencesResponse> {
+  return request<PreferencesResponse>("/api/v1/preferences", {
+    method: "PUT",
+    body: payload,
+    credentials: "include",
+  });
+}
+
+export async function resetUserPreferences(): Promise<PreferencesResponse> {
+  return request<PreferencesResponse>("/api/v1/preferences", {
+    method: "DELETE",
+    credentials: "include",
+  });
+}
+
+/* ------------------------------------------------------------------ Phase 6: Sources & Import */
+
+export async function listGovernmentSources(): Promise<GovernmentSourceListResponse> {
+  return request<GovernmentSourceListResponse>("/api/v1/admin/sources", {
+    method: "GET",
+    credentials: "include",
+  });
+}
+
+export async function createGovernmentSource(
+  payload: GovernmentSourceCreate,
+  csrfToken: string,
+): Promise<GovernmentSourceDetail> {
+  return request<GovernmentSourceDetail>("/api/v1/admin/sources", {
+    method: "POST",
+    body: payload,
+    headers: { "X-CSRF-Token": csrfToken },
+    credentials: "include",
+  });
+}
+
+export async function triggerSourceSync(
+  sourceKey: string,
+  csrfToken: string,
+): Promise<ImportCandidateListResponse> {
+  return request<ImportCandidateListResponse>("/api/v1/admin/sources/sync", {
+    method: "POST",
+    body: { source_key: sourceKey },
+    headers: { "X-CSRF-Token": csrfToken },
+    credentials: "include",
+  });
+}
+
+export async function listImportCandidates(
+  statusFilter?: string,
+): Promise<ImportCandidateListResponse> {
+  const query = statusFilter ? `?status=${encodeURIComponent(statusFilter)}` : "";
+  return request<ImportCandidateListResponse>(`/api/v1/admin/import-candidates${query}`, {
+    method: "GET",
+    credentials: "include",
+  });
+}
+
+export async function promoteImportCandidate(
+  candidateId: string,
+  csrfToken: string,
+): Promise<PromoteCandidateResponse> {
+  return request<PromoteCandidateResponse>(
+    `/api/v1/admin/import-candidates/${encodeURIComponent(candidateId)}/promote`,
+    {
+      method: "POST",
+      headers: { "X-CSRF-Token": csrfToken },
+      credentials: "include",
+    },
+  );
+}
+
+export async function rejectImportCandidate(
+  candidateId: string,
+  csrfToken: string,
+): Promise<{ status: string; id: string }> {
+  return request<{ status: string; id: string }>(
+    `/api/v1/admin/import-candidates/${encodeURIComponent(candidateId)}/reject`,
+    {
+      method: "POST",
+      headers: { "X-CSRF-Token": csrfToken },
+      credentials: "include",
+    },
+  );
+}
+
+
+
+

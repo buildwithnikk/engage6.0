@@ -39,7 +39,7 @@ def create_app() -> FastAPI:
         # allow_credentials is forced off when a wildcard origin is configured.
         allow_credentials=settings.allow_credentials,
         allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type"],
+        allow_headers=["Authorization", "Content-Type", "X-CSRF-Token"],
     )
 
     app.include_router(api_router, prefix="/api/v1")

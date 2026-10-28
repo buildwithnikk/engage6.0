@@ -80,15 +80,15 @@ def test_cors_does_not_echo_an_unconfigured_origin(monkeypatch):
     assert res.headers.get("access-control-allow-origin") != "http://evil.example.com"
 
 
-def test_no_phase_2_endpoint_is_exposed_yet(client):
+def test_no_future_phase_endpoint_is_exposed_yet(client):
     """Guard against silently starting a gated phase.
 
-    This test tracked Phase 1 until Phase 1 opened; schemes and eligibility are
-    now legitimately registered, so the guard moved forward to the next gate.
-    See docs/phase-plan.md — documents, complaints and profiles are Phase 3+.
+    Phase 1 (schemes/eligibility), Phase 2 (admin/curation), Phase 3 (documents/ocr),
+    and Phase 4 (preparations) are open. Future phase endpoints (complaints,
+    citizen profiles, citizen auth) remain strictly gated.
+    See docs/phase-plan.md.
     """
     for path in (
-        "/api/v1/documents",
         "/api/v1/complaints",
         "/api/v1/profiles",
         "/api/v1/auth",
@@ -96,16 +96,42 @@ def test_no_phase_2_endpoint_is_exposed_yet(client):
         assert client.get(path).status_code == 404
 
 
-def test_openapi_documents_exactly_the_phase_1_surface(client):
-    """The whole public API, in one assertion.
+def test_openapi_documents_exactly_the_phase_6_surface(client):
+    """The whole designed API surface, in one assertion.
 
     A new endpoint appearing here without this list changing means something was
     registered without being designed.
     """
     paths = client.get("/openapi.json").json()["paths"]
     assert sorted(paths) == [
+        "/api/v1/admin/audit-events",
+        "/api/v1/admin/auth/login",
+        "/api/v1/admin/auth/logout",
+        "/api/v1/admin/import-candidates",
+        "/api/v1/admin/import-candidates/{id}/promote",
+        "/api/v1/admin/import-candidates/{id}/reject",
+        "/api/v1/admin/me",
+        "/api/v1/admin/overview",
+        "/api/v1/admin/schemes",
+        "/api/v1/admin/schemes/{id}",
+        "/api/v1/admin/schemes/{id}/archive",
+        "/api/v1/admin/schemes/{id}/request-changes",
+        "/api/v1/admin/schemes/{id}/submit-review",
+        "/api/v1/admin/schemes/{id}/verify",
+        "/api/v1/admin/sources",
+        "/api/v1/admin/sources/sync",
+        "/api/v1/document-sessions",
+        "/api/v1/document-sessions/current",
+        "/api/v1/documents",
+        "/api/v1/documents/{document_id}",
+        "/api/v1/documents/{document_id}/confirm",
+        "/api/v1/documents/{document_id}/extraction",
         "/api/v1/eligibility/check",
         "/api/v1/health",
+        "/api/v1/preferences",
+        "/api/v1/preferences/metadata",
+        "/api/v1/preparations",
+        "/api/v1/preparations/{draft_id}",
         "/api/v1/schemes",
         "/api/v1/schemes/{scheme_id}",
     ]
