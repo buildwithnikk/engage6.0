@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #f7f8fb;
+  --card: #ffffff;
+  --text: #16213e;
+  --muted: #5b6b85;
+  --line: #e2e8f0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1420;
+    --card: #171d2c;
+    --text: #e8edf7;
+    --muted: #93a1b8;
+    --line: #2a3346;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0f1420;
+  --card: #171d2c;
+  --text: #e8edf7;
+  --muted: #93a1b8;
+  --line: #2a3346;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Respect a reduced-motion preference for the pending-state pulse. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

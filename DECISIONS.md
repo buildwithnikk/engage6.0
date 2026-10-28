@@ -1,7 +1,120 @@
 # DECISIONS — Sahayak
 
-Technology choices, why each one survives a 4-hour budget, and what we rejected.
-Every decision here is already reflected in the repository.
+Technology choices and what was rejected.
+
+> **Four of these decisions have been reversed.** The project moved from a Next.js-only app to
+> `Next.js → FastAPI → Supabase`, with all domain logic in Python. The reversals are recorded in
+> §"Reversed decisions" immediately below; the original entries are kept underneath, unedited,
+> because the reasoning behind a reversal is only legible next to what it replaced.
+>
+> Entries D1–D11 below describe the **superseded** prototype, now parked in `prototype/`.
+> Read them as history, not as current guidance.
+
+---
+
+## Reversed decisions
+
+### R1 — Next.js API routes → Python FastAPI *(reverses D1)*
+
+**Now:** a separate FastAPI service owns all domain logic, AI, OCR and database access. Next.js
+holds the UI and browser capabilities only.
+
+**Why the reversal:** D1 optimised for a 4-hour single deploy, and it was right for that. It was
+wrong for a project that has to keep going. Eligibility determination has to be deterministic,
+auditable, versioned and unit-testable, and AI/OCR/database work all belong in one language with
+one test suite. Splitting business logic between a TypeScript route handler and a future Python
+service would have produced two half-correct implementations of the same rule.
+
+**Cost accepted:** two processes, two installs, CORS configuration, and the prototype's nine
+route handlers now need rewriting in Python.
+
+### R2 — Strict builds in `frontend/` *(reverses D8 for the new app)*
+
+**Now:** `frontend/next.config.js` sets no `ignoreBuildErrors`. Type and lint errors fail the
+build, and CI runs `typecheck` plus `build`.
+
+**Why:** D8 traded correctness for a guaranteed deploy at minute 235 of a hackathon. There is no
+such deadline on a foundation, and silently shipping a type error into the layer everything else
+is built on is the expensive kind of mistake. The forgiving setting survives only in
+`prototype/next.config.js`.
+
+### R3 — Automated tests exist *(reverses D9)*
+
+**Now:** 15 backend tests (`pytest` + FastAPI `TestClient`), run in CI.
+
+**Why:** D9 argued that hand-testing a demo beat spending 40 minutes on test setup. That held for
+a demo. It does not hold for a health contract that other work depends on, and the tests paid for
+themselves immediately — they are what proves the app starts with no credentials, that a dead
+database reports `unavailable` rather than `ok`, that credentials never appear in a response, and
+that no Phase 1 endpoint has been quietly added.
+
+### R4 — No mock-success fallbacks in user-facing surfaces *(reverses D10)*
+
+**Now:** `lib/api-client.ts` has no fallback path. A failure is classified and surfaced; the UI
+says the backend is unreachable and that the database state is therefore unknown.
+
+**Why:** D10's fallback layer solved real problems (nobody blocked, demo survives bad wifi) and
+created a worse one: a UI that cannot be trusted. A health indicator that shows green when the
+backend is down is not a degraded feature, it is a false statement. Synthetic data keeps its
+legitimate home — fixtures and tests, per `docs/privacy.md` — not the UI.
+
+**Still true from D10:** fallbacks must never be invisible. The mechanism is gone; the principle
+that the product never claims a result it did not get is now in `AGENTS.md`.
+
+---
+
+## Decisions that carried over unchanged
+
+- **D3 — eligibility is deterministic, never a model.** Reaffirmed and strengthened: it is now a
+  Python engine with a `rules_version` on every response, and three-valued output so a missing
+  answer cannot be silently treated as a pass.
+- **D5 — the OpenStreetMap stack** remains the choice if and when maps are scheduled: keyless
+  and free, where Google and Mapbox require billing.
+- **D7 — minimal persistence.** Now stronger: eligibility in the first MVP is stateless, and no
+  profile table is created before the phase that needs it.
+- **D11 — Supabase optional at start-up.** Now a tested property rather than a convention: the
+  app must import and serve with no `DATABASE_URL`, and a test asserts it.
+
+---
+
+## New decisions
+
+### N1 — `supabase/migrations/` is the only migration history
+
+Alembic is deliberately not introduced. SQLAlchemy models map a schema that migrations created;
+they never generate a competing history. Two migration tools on one database is how a schema
+stops being reproducible.
+
+### N2 — Nothing applies schema automatically
+
+No CI step and no application start-up runs a migration. Applying schema to a remote project is
+a deliberate human act after review. An auto-migrating deploy is how a reviewed `drop column`
+reaches production unseen.
+
+### N3 — The health endpoint returns 200 even when the database is down
+
+"The API is up" and "the database is reachable" are different facts, and the response carries
+both. A 503 would make the API itself look down and would hide the distinction the frontend needs
+in order to tell the user the truth. A readiness probe for an orchestrator, if ever needed, gets
+its own path.
+
+### N4 — Only the exception class name crosses a boundary
+
+Database driver messages routinely contain the host, the user and sometimes the password, so the
+message is never logged or returned — only `type(exc).__name__`. Two tests assert that a
+password, a username and a host do not appear in a health response.
+
+### N5 — Python 3.12 target, 3.13 locally
+
+`requires-python = ">=3.12"` and CI pins 3.12. The machine this was scaffolded on has 3.13.5 and
+no 3.12; the suite passes on it. Recorded rather than hidden, because "works on my machine" is
+exactly the thing a pinned CI version is for.
+
+---
+
+## Superseded entries (prototype, Next.js-only)
+
+The original text follows, unedited.
 
 ---
 

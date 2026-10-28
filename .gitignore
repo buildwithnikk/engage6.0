@@ -1,5 +1,57 @@
-.DS_Store
+# ---- Secrets -------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# ---- Python --------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# ---- Node / Next.js ------------------------------------------------------
 node_modules/
 .next/
-.env*.local
+out/
+.turbo/
+next-env.d.ts
+*.tsbuildinfo
+
+# ---- Logs & local artifacts ---------------------------------------------
+*.log
+npm-debug.log*
+yarn-error.log*
+logs/
+
+# ---- Uploaded or generated documents (never commit citizen data) --------
+uploads/
+documents/
+backup/
+*.pdf
+!docs/**/*.pdf
+
+# ---- OS / editor ---------------------------------------------------------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+!.vscode/extensions.json
+
+# ---- Supabase local ------------------------------------------------------
+supabase/.branches/
+supabase/.temp/
+
+# ---- Office temp files ---------------------------------------------------
 ~$*.xlsx

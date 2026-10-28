@@ -1,0 +1,42 @@
+[project]
+name = "sahayak-backend"
+version = "0.1.0"
+description = "Sahayak API — FastAPI service owning all domain logic, AI and database access"
+readme = "README.md"
+# The repository target is Python 3.12.x. The development machine this was set up on
+# has 3.13.5 and no 3.12, so the floor is 3.12 and CI pins 3.12 (see .github/workflows/ci.yml).
+requires-python = ">=3.12"
+
+dependencies = [
+    "fastapi>=0.115,<0.200",
+    "uvicorn[standard]>=0.30,<0.40",
+    "pydantic>=2.8,<3",
+    "pydantic-settings>=2.4,<3",
+    # Database access. Imported lazily in app/db/session.py so the app starts without a DATABASE_URL.
+    "sqlalchemy>=2.0,<3",
+    "psycopg[binary]>=3.2,<4",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3,<9",
+    "httpx>=0.27,<0.29",
+    "ruff>=0.6,<0.20",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.flake8-bugbear]
+# `Depends(...)` in an argument default is how FastAPI declares dependencies.
+# B008 ("no function call in a default") is correct in general and wrong here.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path", "fastapi.Body"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"

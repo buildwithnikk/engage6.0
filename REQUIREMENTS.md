@@ -1,7 +1,20 @@
 # REQUIREMENTS — Sahayak
 
-**Status:** scaffold exists, application incomplete. See [TASKS.md](TASKS.md) for what is left.
-**Budget:** 4 hours · 3 people (A, B, C) · AI-assisted development available.
+> **Scope note, after the architecture change.** This file is the **product** requirements:
+> the problem, the users, the user stories and the feature backlog. It still holds.
+>
+> What it no longer describes is *how* any of it is built. It was written against a
+> Next.js-only app with a demo-data fallback layer; the project now runs
+> `Next.js → FastAPI → Supabase`, with all domain logic in Python and no mock fallbacks in
+> user-facing surfaces. For architecture read [docs/architecture.md](docs/architecture.md),
+> and for what is being built now read [docs/phase-plan.md](docs/phase-plan.md).
+>
+> **The must-have and should-have sections below are a product backlog, not current work.**
+> Phase 0 implements none of them. Each becomes real only when its phase opens, and its
+> acceptance criteria will be re-expressed against the FastAPI endpoints at that point.
+> The superseded build plan is kept at [prototype/TASKS.md](prototype/TASKS.md).
+
+**Current phase:** Phase 0 — foundation. See the root [README.md](README.md).
 
 Throughout these documents:
 - **[FACT]** = verified in the repository or in published public documentation.
@@ -188,7 +201,7 @@ Not "bad ideas" — unbuildable or dishonest inside 4 hours. State them as roadm
 4. The demo must survive a dead or hostile network.
 5. No real citizen data, ever. Demo data only.
 
-**[FACT] Repository state, verified at the time of writing**
+**[SUPERSEDED] Repository state of the old Next.js-only scaffold** (now in `prototype/`, excluded from the build)
 - Next.js 14 App Router, TypeScript, Tailwind. 10 pages and 9 AI routes written.
 - `lib/` complete: `gemini`, `eligibility`, `demo`, `db`, `offline`, `geo`, `osrm`, `sign`, `i18n`, `types`, `supabase`.
 - **Missing:** `data/schemes.json` (imported by `lib/eligibility.ts` — *the build fails without it*),
@@ -212,7 +225,10 @@ Not "bad ideas" — unbuildable or dishonest inside 4 hours. State them as roadm
 
 ---
 
-## 8. Definition of done
+## 8. Definition of done — product level
+
+> Phase 0's own definition of done is the checklist in the root [README.md](README.md).
+> The criteria below apply when the citizen-facing features actually exist.
 
 1. `npm run build` succeeds.
 2. The app is deployed and reachable on a phone over HTTPS.

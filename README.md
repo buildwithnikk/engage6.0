@@ -1,127 +1,152 @@
-# 🏛️ Sahayak — Citizen Operating System
+# Sahayak
 
-**Hackathon theme:** Better Communities, Better Governance
-**Constraint:** 4 hours · team of 3 · only free, publicly available APIs
+A multilingual citizen-assistance platform for discovering government schemes, checking
+eligibility, understanding official documents and preparing forms.
 
-> **Status: scaffold, not a finished app.** 10 screens, 9 AI routes and all of `lib/` exist.
-> Still to build: `data/schemes.json`, 7 data route handlers, `public/sw.js`. Dependencies have
-> not been installed and `npm run build` has not yet been run.
+**Current phase: Phase 0 — foundation.** No citizen-facing feature is implemented. What works
+today is the Next.js → FastAPI path and an honest health report. Later phases are gated in
+[`docs/phase-plan.md`](docs/phase-plan.md).
 
-## Documentation — read in this order
+```
+React + Next.js + TypeScript  →  Python FastAPI  →  Supabase PostgreSQL
+                                        ↓
+                      verified scheme catalogue → deterministic eligibility engine
+```
+
+Python owns all domain logic, AI, OCR and database access. TypeScript owns the UI and
+browser capabilities only.
+
+---
+
+## Run it locally
+
+Two terminals. Backend first.
+
+### 1. Backend — FastAPI
+
+```bash
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+cp .env.example .env
+uvicorn app.main:app --reload --port 8000
+```
+
+- Health: http://localhost:8000/api/v1/health
+- Interactive docs: http://localhost:8000/docs
+
+`DATABASE_URL` may stay blank. The app starts without it and reports
+`database: "unconfigured"`, which is the correct Phase 0 state.
+
+### 2. Frontend — Next.js
+
+```bash
+cd frontend
+npm install
+cp .env.example .env.local
+npm run dev
+```
+
+Open http://localhost:3000. The status panel calls the real FastAPI endpoint — there is no mock.
+
+### Verify
+
+```bash
+curl -s http://localhost:8000/api/v1/health | python3 -m json.tool
+```
+
+```bash
+cd backend && source .venv/bin/activate && pytest     # 15 tests
+```
+
+```bash
+cd frontend && npm run typecheck && npm run build
+```
+
+---
+
+## Configuring `DATABASE_URL` safely
+
+`DATABASE_URL` is a **secret**. It belongs in `backend/.env` only — never in `frontend/`, never
+in a `NEXT_PUBLIC_*` variable, never committed. `.gitignore` excludes `.env` files.
+
+1. Create a project at [supabase.com](https://supabase.com) (Free tier).
+2. Dashboard → **Connect**. Copy the exact string; the pooler host cannot be guessed.
+3. Pick a mode: **direct** (port 5432) for a persistent server on an IPv6-capable network, or
+   the **session pooler** (port 5432, user `postgres.[PROJECT-REF]`) on an IPv4-only network —
+   Free tier has no IPv4 add-on, so a direct string will simply fail there.
+4. Add the driver prefix SQLAlchemy needs and percent-encode `&`, `#`, `?` or spaces in the
+   password:
+
+```
+DATABASE_URL=postgresql+psycopg://postgres.[PROJECT-REF]:[PASSWORD]@[POOLER-HOST]:5432/postgres
+```
+
+5. Restart uvicorn and reload the page. The status panel should show **Connected**. If it shows
+   **Unavailable**, the string or the network path is wrong — the detail message says which
+   exception class occurred, without echoing your credentials.
+
+Full detail, including export and restore: [`docs/database-schema.md`](docs/database-schema.md) §7.
+
+---
+
+## Documentation
 
 | File | What it answers |
 |---|---|
-| [REQUIREMENTS.md](REQUIREMENTS.md) | What we are building, for whom, and the acceptance criteria |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Structure, boundaries, data flow, error handling, security |
-| [TASKS.md](TASKS.md) | What to do next, in order, with estimates and verification |
-| [TEST_PLAN.md](TEST_PLAN.md) | The journey to demo, edge cases, failure cases, submission checks |
-| [DECISIONS.md](DECISIONS.md) | Why this stack, and what was rejected |
-| [AGENTS.md](AGENTS.md) | Working rules for everyone, human and AI |
-| `Sahayak_Hackathon_Plan.xlsx` | Per-person task sheets and the demo script |
-
-> *Internet ho ya na ho, smartphone ho ya na ho — har citizen tak sarkar pahunchegi.*
-
----
-
-## The core idea
-
-```
-1 Next.js app  +  1 Gemini key  +  1 Supabase project  =  8 modules
-```
-
-Every module is **one page + one API route**. No separate backend, no second model, no extra
-service. That is the only reason 8 modules fit in 4 hours.
+| [`docs/architecture.md`](docs/architecture.md) | The stack, folder responsibilities, request path, error handling, security boundaries |
+| [`docs/api-contracts.md`](docs/api-contracts.md) | The health endpoint in full; Phase 1 endpoints marked planned |
+| [`docs/database-schema.md`](docs/database-schema.md) | Planned tables, Supabase Free limits, **the RLS-bypass risk**, migrations, export/restore |
+| [`docs/phase-plan.md`](docs/phase-plan.md) | What is active and what is gated |
+| [`docs/research-register.md`](docs/research-register.md) | How a scheme gets verified before it is shown |
+| [`docs/privacy.md`](docs/privacy.md) | Synthetic data, minimisation, consent, secrets, deletion |
+| [`REQUIREMENTS.md`](REQUIREMENTS.md) | Product requirements: problem, users, stories |
+| [`DECISIONS.md`](DECISIONS.md) | Technology choices and what was rejected |
+| [`AGENTS.md`](AGENTS.md) | Working rules for everyone, human and AI |
+| [`prototype/README.md`](prototype/README.md) | The superseded Next.js-only prototype and what to harvest from it |
 
 ---
 
-## Modules
+## Repository layout
 
-| # | Module | What it does |
+```
+sahayak/
+├── docs/              shared contracts and decisions, reviewed by all three
+├── frontend/          Next.js App Router + TypeScript (Person A)
+├── backend/           FastAPI — all domain logic, AI, database (Person C; services by B)
+├── supabase/          migrations/ — the single canonical migration history
+├── prototype/         superseded Next.js-only prototype, excluded from the build
+└── .github/workflows/ CI: backend tests, frontend typecheck and build
+```
+
+## Who owns what
+
+| Person | Owns | Must not |
 |---|---|---|
-| 1 | **Scheme & Scholarship Discovery** | Matches a profile against 40 schemes, shows "₹42,000/yr unclaimed", and "1 document away from 3 more" |
-| 2 | **Document Scan → Auto-Profile** | Photo of Aadhaar/income certificate → structured profile + name-mismatch warning + expiry reminders |
-| 3 | **Form Helper + Rejection Decoder** | Fills a real PDF by voice in Hindi; explains every field; decodes a rejection letter into fix steps |
-| 4 | **Civic Complaints + Escalation** | Photo + GPS → auto-classified → routed to the right ward → auto-drafts escalation, then an RTI |
-| 5 | **Multilingual & Voice-First** | 8 languages, voice in and audio out on every screen, audio explainers of government circulars |
-| 6 | **Transparency Dashboard** | Complaints per ward, median resolution time, anonymous office scorecard, policy simulator |
-| 7 | **Transportation Ease** | Bus/auto route to the office a scheme needs, "Ek din, saare kaam" trip planner, offline-verifiable signed QR pass |
-| 8 | **Offline + Online (Phygital)** | Installable PWA, offline write queue with auto-sync, offline OCR, offline QR verify, kiosk mode |
+| **A — Frontend** | `frontend/`: Next.js, TypeScript, layout, typed API client, UI states | Implement Python business logic |
+| **B — Python AI and domain** | Phase 0: scheme research template, rules-format outline, synthetic scenarios. Later: eligibility, OCR, translation, AI services | Build the engine before Phase 2 opens |
+| **C — Python backend and platform** | `backend/`, database planning, migrations, env config, security docs, tests, CI | Put domain logic in routes |
+
+Shared contracts live in `docs/` and are reviewed by all three.
 
 ---
 
-## Stack — all free, nothing approval-gated
+## Phase 0 definition of done
 
-| Layer | Choice |
-|---|---|
-| App | Next.js 14 + TypeScript + Tailwind + shadcn/ui |
-| LLM / vision / translate | **Google Gemini 2.0 Flash** (free tier, no card) |
-| LLM fallback | **Groq** Llama 3.3 70B (free tier) |
-| Voice | **Web Speech API** + **SpeechSynthesis API** (browser native) |
-| Offline OCR | Tesseract.js |
-| Database / storage | **Supabase** free tier (Postgres + PostGIS) |
-| Maps | MapLibre GL + OpenStreetMap tiles |
-| Geocoding | Nominatim (OSM) |
-| Routing | OSRM demo server |
-| Eligibility | json-logic-js (deterministic — the model never decides eligibility) |
-| PDF | pdf-lib |
-| Charts | Recharts |
-| Offline | hand-written `public/sw.js` + Dexie.js (next-pwa rejected — see DECISIONS.md D6) |
-| Signed QR | @noble/ed25519 + qrcode |
-| Hosting | Vercel free tier |
+| # | Item | State |
+|---|---|---|
+| 1 | Next.js starts and displays the live health result from FastAPI | ✅ verified in a browser |
+| 2 | FastAPI starts without Supabase credentials | ✅ asserted by a test |
+| 3 | Health reports the real database configuration and connection status | ✅ 3 states, asserted |
+| 4 | Backend tests pass | ✅ 15 passed |
+| 5 | Frontend type-check and production build pass | ✅ both |
+| 6 | `.env.example` and `.gitignore` correct | ✅ |
+| 7 | Architecture, API, schema, phase and privacy docs exist | ✅ 6 files in `docs/` |
+| 8 | Supabase Free limits and data-access risks documented | ✅ verified against official docs |
+| 9 | Repository layout and migration source of truth clear | ✅ `supabase/migrations/` only |
+| 10 | No future feature silently started | ✅ a test asserts Phase 1 paths 404 |
 
-**Deliberately avoided** (signup approval / KYC / paid — fatal inside 4 hours):
-Bhashini, DigiLocker & API Setu, WhatsApp Cloud API, Twilio, Exotel, Neo4j, custom YOLO training.
-These go on the roadmap slide.
-
----
-
-## Team split
-
-| Person | Owns |
-|---|---|
-| **A — Frontend** | App shell, shared voice components, i18n, scan & form screens, PWA + offline sync, polish, deploy |
-| **B — AI** | `lib/gemini.ts`, every prompt and API route, `schemes.json`, the eligibility engine |
-| **C — Backend** | Supabase schema & seed, maps, complaint routing, OSRM transport, signed QR, dashboard |
-
-Full minute-by-minute task lists are in **[`Sahayak_Hackathon_Plan.xlsx`](Sahayak_Hackathon_Plan.xlsx)**:
-
-- `0. Overview` — rules of engagement
-- `1. Modules` — all 8 modules, scope, tech, owner, priority
-- `2–4. Person A / B / C` — every task with a definition of done and the files to touch
-- `5. Timeline` — the original 3-hour pass; TASKS.md supersedes it with the 4-hour plan
-- `6. Tech Stack` — every library and API with its signup link
-- `7. API Contracts` — exact route shapes, locked at 0:20 so nobody blocks
-- `8. Demo Script` — the 3-minute stage run
-
----
-
-## Five rules that decide whether this ships
-
-1. **Deploy at 0:45, then keep redeploying.** Most teams lose the demo to a last-minute build failure.
-2. **Cache every Gemini response in Dexie.** Free tier is 15 req/min — a live demo must never depend on a fresh call.
-3. **Every module ships with hardcoded demo-data fallback.** If an API dies on stage, the UI still works.
-4. **API shapes are frozen at 0:20.** Not ready? Return canned JSON of the same shape.
-5. **Person A owns the shared components.** B and C consume them; nobody else edits them.
-
----
-
-## Getting started
-
-The project is already scaffolded, so just install:
-
-```bash
-npm install
-# or, to add anything missing:
-npm i @google/generative-ai json-logic-js dexie maplibre-gl pdf-lib qrcode \
-      @noble/ed25519 recharts tesseract.js @supabase/supabase-js lucide-react
-```
-
-```bash
-# .env.local
-GEMINI_API_KEY=         # aistudio.google.com/apikey
-GROQ_API_KEY=           # console.groq.com
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-PASS_PRIVATE_KEY=              # Ed25519 private key for signing passes (server-side only)
-NEXT_PUBLIC_PASS_PUBLIC_KEY=   # matching public key, so a pass verifies offline
-```
+**Known gap:** no Supabase project is connected, so `database: "ok"` has never been observed on
+real infrastructure — only `unconfigured` and `unavailable` are proven. Connecting a project is
+the first step of Phase 1.
