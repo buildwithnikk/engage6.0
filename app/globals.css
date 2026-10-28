@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #f7f8fb;
+  --card: #ffffff;
+  --text: #16213e;
+  --muted: #5b6b85;
+  --line: #e2e8f0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1420;
+    --card: #171d2c;
+    --text: #e8edf7;
+    --muted: #93a1b8;
+    --line: #2a3346;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0f1420;
+  --card: #171d2c;
+  --text: #e8edf7;
+  --muted: #93a1b8;
+  --line: #2a3346;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+/* Kiosk mode: /?kiosk=1 blows everything up for a village touchscreen. */
+body[data-kiosk="1"] {
+  font-size: 20px;
+}
+body[data-kiosk="1"] button {
+  min-height: 72px;
+  font-size: 20px;
+}

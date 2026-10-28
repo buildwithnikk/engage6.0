@@ -1,7 +1,23 @@
 # 🏛️ Sahayak — Citizen Operating System
 
 **Hackathon theme:** Better Communities, Better Governance
-**Constraint:** 3 hours · team of 3 · only free, publicly available APIs
+**Constraint:** 4 hours · team of 3 · only free, publicly available APIs
+
+> **Status: scaffold, not a finished app.** 10 screens, 9 AI routes and all of `lib/` exist.
+> Still to build: `data/schemes.json`, 7 data route handlers, `public/sw.js`. Dependencies have
+> not been installed and `npm run build` has not yet been run.
+
+## Documentation — read in this order
+
+| File | What it answers |
+|---|---|
+| [REQUIREMENTS.md](REQUIREMENTS.md) | What we are building, for whom, and the acceptance criteria |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Structure, boundaries, data flow, error handling, security |
+| [TASKS.md](TASKS.md) | What to do next, in order, with estimates and verification |
+| [TEST_PLAN.md](TEST_PLAN.md) | The journey to demo, edge cases, failure cases, submission checks |
+| [DECISIONS.md](DECISIONS.md) | Why this stack, and what was rejected |
+| [AGENTS.md](AGENTS.md) | Working rules for everyone, human and AI |
+| `Sahayak_Hackathon_Plan.xlsx` | Per-person task sheets and the demo script |
 
 > *Internet ho ya na ho, smartphone ho ya na ho — har citizen tak sarkar pahunchegi.*
 
@@ -14,7 +30,7 @@
 ```
 
 Every module is **one page + one API route**. No separate backend, no second model, no extra
-service. That is the only reason 8 modules fit in 3 hours.
+service. That is the only reason 8 modules fit in 4 hours.
 
 ---
 
@@ -49,11 +65,11 @@ service. That is the only reason 8 modules fit in 3 hours.
 | Eligibility | json-logic-js (deterministic — the model never decides eligibility) |
 | PDF | pdf-lib |
 | Charts | Recharts |
-| Offline | next-pwa (Workbox) + Dexie.js |
+| Offline | hand-written `public/sw.js` + Dexie.js (next-pwa rejected — see DECISIONS.md D6) |
 | Signed QR | @noble/ed25519 + qrcode |
 | Hosting | Vercel free tier |
 
-**Deliberately avoided** (signup approval / KYC / paid — fatal inside 3 hours):
+**Deliberately avoided** (signup approval / KYC / paid — fatal inside 4 hours):
 Bhashini, DigiLocker & API Setu, WhatsApp Cloud API, Twilio, Exotel, Neo4j, custom YOLO training.
 These go on the roadmap slide.
 
@@ -72,7 +88,7 @@ Full minute-by-minute task lists are in **[`Sahayak_Hackathon_Plan.xlsx`](Sahaya
 - `0. Overview` — rules of engagement
 - `1. Modules` — all 8 modules, scope, tech, owner, priority
 - `2–4. Person A / B / C` — every task with a definition of done and the files to touch
-- `5. Timeline` — 3 hours, all three in parallel, with checkpoints
+- `5. Timeline` — the original 3-hour pass; TASKS.md supersedes it with the 4-hour plan
 - `6. Tech Stack` — every library and API with its signup link
 - `7. API Contracts` — exact route shapes, locked at 0:20 so nobody blocks
 - `8. Demo Script` — the 3-minute stage run
@@ -91,10 +107,13 @@ Full minute-by-minute task lists are in **[`Sahayak_Hackathon_Plan.xlsx`](Sahaya
 
 ## Getting started
 
+The project is already scaffolded, so just install:
+
 ```bash
-npx create-next-app@latest . --ts --tailwind --app
+npm install
+# or, to add anything missing:
 npm i @google/generative-ai json-logic-js dexie maplibre-gl pdf-lib qrcode \
-      @noble/ed25519 next-pwa recharts tesseract.js @supabase/supabase-js lucide-react
+      @noble/ed25519 recharts tesseract.js @supabase/supabase-js lucide-react
 ```
 
 ```bash
@@ -103,5 +122,6 @@ GEMINI_API_KEY=         # aistudio.google.com/apikey
 GROQ_API_KEY=           # console.groq.com
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
-PASS_SIGNING_SECRET=    # Ed25519 private key for QR passes
+PASS_PRIVATE_KEY=              # Ed25519 private key for signing passes (server-side only)
+NEXT_PUBLIC_PASS_PUBLIC_KEY=   # matching public key, so a pass verifies offline
 ```
