@@ -80,12 +80,32 @@ def test_cors_does_not_echo_an_unconfigured_origin(monkeypatch):
     assert res.headers.get("access-control-allow-origin") != "http://evil.example.com"
 
 
-def test_no_phase_1_endpoint_is_exposed_yet(client):
-    """Guard against silently starting Phase 1."""
-    for path in ("/api/v1/schemes", "/api/v1/eligibility", "/api/v1/documents"):
+def test_no_phase_2_endpoint_is_exposed_yet(client):
+    """Guard against silently starting a gated phase.
+
+    This test tracked Phase 1 until Phase 1 opened; schemes and eligibility are
+    now legitimately registered, so the guard moved forward to the next gate.
+    See docs/phase-plan.md — documents, complaints and profiles are Phase 3+.
+    """
+    for path in (
+        "/api/v1/documents",
+        "/api/v1/complaints",
+        "/api/v1/profiles",
+        "/api/v1/auth",
+    ):
         assert client.get(path).status_code == 404
 
 
-def test_openapi_documents_only_the_health_route(client):
+def test_openapi_documents_exactly_the_phase_1_surface(client):
+    """The whole public API, in one assertion.
+
+    A new endpoint appearing here without this list changing means something was
+    registered without being designed.
+    """
     paths = client.get("/openapi.json").json()["paths"]
-    assert list(paths) == ["/api/v1/health"]
+    assert sorted(paths) == [
+        "/api/v1/eligibility/check",
+        "/api/v1/health",
+        "/api/v1/schemes",
+        "/api/v1/schemes/{scheme_id}",
+    ]

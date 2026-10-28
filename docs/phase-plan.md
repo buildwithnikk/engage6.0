@@ -1,6 +1,6 @@
 # Phase plan
 
-**Active phase: Phase 0.** Every later phase is gated. A phase opens only when the previous
+**Active phase: Phase 1.** Every later phase is gated. A phase opens only when the previous
 phase's definition of done is demonstrably met — not when it looks nearly done, and not because
 a later phase would be more interesting to build.
 
@@ -9,7 +9,7 @@ foundation stops being trustworthy.
 
 ---
 
-## Phase 0 — Foundation ✅ active
+## Phase 0 — Foundation ✅ complete
 
 **Goal:** prove the Next.js → FastAPI path works, and write down the contracts and risks the
 rest of the project depends on.
@@ -33,11 +33,26 @@ sync, profile persistence, production deployment.
 
 ---
 
-## Phase 1 — Verified scheme catalogue 🔒 gated
+## Phase 1 — Scheme catalogue and eligibility ✅ active
 
-**Opens when:** Phase 0's checklist passes **and** the health endpoint reports
-`database: "ok"` — which it now does against local PostgreSQL. A Supabase project is **not** a
-prerequisite for Phase 1; it is a prerequisite for the first deployment.
+**Opened:** Phase 0's checklist passed and the health endpoint reports `database: "ok"`
+against local PostgreSQL. A Supabase project is **not** a prerequisite for Phase 1; it is a
+prerequisite for the first deployment.
+
+**Delivered**
+- `supabase/migrations/20261028120000_create_schemes.sql` — the `schemes` table, its
+  constraints, indexes and `updated_at` trigger, with a matching `.down.sql`
+- SQLAlchemy model, repository, service and thin routes
+- `GET /api/v1/schemes`, `GET /api/v1/schemes/{scheme_id}` (UUID **or** slug),
+  `POST /api/v1/eligibility/check`
+- Deterministic rule evaluator — see [eligibility-rules.md](eligibility-rules.md)
+- Idempotent synthetic seed that cannot write `verified`
+- Next.js discovery, detail and questionnaire pages against the real API
+- 121 backend tests
+
+**Scope note:** Phase 1 absorbed what the original plan called Phase 2 (the eligibility
+engine), because a catalogue with no eligibility check is not a usable vertical slice. The
+numbering below shifts accordingly.
 
 **Scope**
 - Research and verify a first set of schemes using `research-register.md` — each one checked
@@ -55,19 +70,26 @@ official source with a reviewer and a date, and no unverified row is reachable b
 
 ---
 
-## Phase 2 — Deterministic eligibility engine 🔒 gated
+## Phase 2 — Verified real schemes 🔒 gated
 
-**Opens when:** Phase 1 is done and at least a handful of schemes carry reviewed
-`eligibility_rules`.
+**Opens when:** Phase 1 is complete and someone is ready to do research against official
+government sources.
 
 **Scope**
-- Python rule evaluator — deterministic, versioned, explainable; **never a language model**
-- `POST /api/v1/eligibility/check`, **stateless**: no profile row, no stored answers
-- Synthetic test scenarios from Person B, including the `insufficient_information` cases
-- Frontend: a question flow and a result view that shows *why*, with the indicative disclaimer
+- Research real schemes using [research-register.md](research-register.md): facts verified
+  against the responsible department's own source, with a named reviewer and a date
+- Author and hand-check their `eligibility_rules`
+- Promote reviewed records to `review_status = 'verified'` through a reviewed migration or an
+  admin path — never through the seed
+- Extend the rule format only where a real scheme needs it (see the limitations section of
+  eligibility-rules.md)
 
-**Done when:** a given set of answers plus a given `rules_version` always produces the same
-explained outcome, and the test scenarios all pass.
+**Done when:** the public catalogue serves real verified schemes, every row traces to an
+official source with a reviewer and a date, and the eligibility results for them have been
+checked by hand against the published criteria.
+
+**Note:** the catalogue is empty to the public until this phase runs. That is correct, not a
+bug — the seed is synthetic and deliberately unverified.
 
 ---
 

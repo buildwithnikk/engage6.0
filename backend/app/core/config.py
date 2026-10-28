@@ -28,8 +28,14 @@ class Settings(BaseSettings):
     cors_allow_origins: str = Field(default="http://localhost:3000,http://127.0.0.1:3000")
     cors_allow_credentials: bool = Field(default=False)
 
-    # Absent in Phase 0. When absent, /api/v1/health reports database "unconfigured".
+    # When absent, /api/v1/health reports database "unconfigured" and scheme
+    # endpoints return 503 rather than pretending the catalogue is empty.
     database_url: str | None = Field(default=None)
+
+    # Development/admin escape hatch: lets a caller list draft and needs_review
+    # schemes. OFF by default, and it must stay off anywhere a citizen can reach,
+    # because unverified rows are unchecked research, not government fact.
+    allow_unverified_schemes: bool = Field(default=False)
     # Seconds. Kept short so a dead database cannot hang a health check.
     db_connect_timeout: int = Field(default=3, ge=1, le=30)
 

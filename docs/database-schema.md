@@ -3,7 +3,7 @@
 **Development runs on local PostgreSQL. Supabase is the deployment target.** The same
 migrations apply to both — see §0 below.
 
-**Phase 0 status: no migration has been written and no schema has been applied.** This document
+**Phase 1 status: the `schemes` migration is written and applied locally.** See §3. This document
 is the plan. The first migration (`schemes`) is written in Phase 1, after the connection
 approach below has been verified and the migration reviewed.
 
@@ -115,9 +115,10 @@ Phase 0 creates none of these. A table is added in the phase that uses it.
 
 ---
 
-## 3. Proposed `schemes` structure (Phase 1 migration)
+## 3. The `schemes` table (implemented)
 
-Documented here for review; **not yet written as SQL.**
+Created by `supabase/migrations/20261028120000_create_schemes.sql`. The table below is what
+that migration actually builds; if they ever disagree, the migration is right.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -132,7 +133,7 @@ Documented here for review; **not yet written as SQL.**
 | `required_documents` | `jsonb` | Array of document identifiers |
 | `official_apply_url` | `text` | Official application page |
 | `source_url` | `text` | The page the facts were verified against |
-| `review_status` | `text` | Constrained: `draft`, `needs_review`, `verified`, `rejected` |
+| `review_status` | `text` | Constrained: `draft`, `needs_review`, `verified`, `archived` |
 | `verified_at` | `timestamptz` null | Set only when `review_status = 'verified'` |
 | `rules_version` | `text` | Bumped whenever `eligibility_rules` changes, so a result is reproducible |
 | `created_at` | `timestamptz` | `default now()` |
@@ -141,7 +142,7 @@ Documented here for review; **not yet written as SQL.**
 **Constraints worth having, and no more**
 - `unique (slug)`
 - `check (jurisdiction in ('central','state'))`
-- `check (review_status in ('draft','needs_review','verified','rejected'))`
+- `check (review_status in ('draft','needs_review','verified','archived'))`
 - `check (jurisdiction = 'central' and state_code is null or jurisdiction = 'state' and state_code is not null)`
 - `check (review_status <> 'verified' or verified_at is not null)` — a scheme cannot be verified without a date
 
@@ -149,6 +150,17 @@ Documented here for review; **not yet written as SQL.**
 - The `unique (slug)` index serves slug lookups.
 - `index on (review_status, state_code)` for the list endpoint's filter.
 - No full-text index until `q=` search exists and is slow. 500 MB does not reward speculative indexes.
+
+### Visibility is enforced in Python, not only by RLS
+
+The backend connects as `sahayak_app`, a role without `BYPASSRLS` — but the filter that keeps
+unverified rows out of public responses lives in
+`backend/app/services/scheme_service.py:visible_statuses`, and the repository applies it in the
+`WHERE` clause of every query. Tests assert it from the outside
+(`tests/integration/test_schemes_api.py::TestVisibility`).
+
+The RLS policy below is defence in depth for direct client access, not the primary control.
+Saying otherwise would be the exact mistake §4 warns about.
 
 ### Row Level Security for `schemes`
 
@@ -165,7 +177,7 @@ create policy "verified schemes are publicly readable"
 -- Catalogue writes happen through a reviewed migration or a privileged backend task.
 ```
 
-Draft and rejected rows stay invisible to browser clients. Writing no write-policy is the point:
+Draft, needs_review and archived rows stay invisible to browser clients. Writing no write-policy is the point:
 with RLS enabled and no permissive policy, writes are denied by default.
 
 ---

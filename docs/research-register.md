@@ -135,10 +135,39 @@ Coverage to aim for, before the engine exists:
 
 ---
 
+## How a record reaches the public catalogue
+
+1. Researched and filled in here, with a source URL, a date and a named reviewer.
+2. Rules authored in the format in [eligibility-rules.md](eligibility-rules.md) and read line
+   by line by a human.
+3. A second person spot-checks the rules against the official source.
+4. Promoted to `review_status = 'verified'` with a `verified_at` date, through a reviewed
+   migration or an admin path.
+
+**Never through the seed.** `backend/app/seed.py` raises if a record claims `verified`, and the
+database constraint `schemes_verified_requires_date` refuses a verification with no date. Both
+exist because a forged provenance claim is worse than a missing scheme.
+
 ## Register
 
-*No schemes verified yet. Phase 1 fills this in.*
+**No scheme has been verified.** The catalogue currently holds four synthetic demo records,
+which are deliberately unverified and therefore invisible to the public API.
 
 | Slug | Official name | Jurisdiction | Status | Checked | Reviewer |
 |---|---|---|---|---|---|
-| — | — | — | — | — | — |
+| `demo-study-support-allowance` | DEMO — Study Support Allowance | state (UP) | draft — **synthetic** | — | — |
+| `demo-artisan-equipment-grant` | DEMO — Artisan Equipment Grant | central | draft — **synthetic** | — | — |
+| `demo-senior-travel-concession` | DEMO — Senior Travel Concession | state (UP) | needs_review — **synthetic** | — | — |
+| `demo-unreadable-rules-fixture` | DEMO — Scheme With Unsupported Rules | central | draft — **synthetic** | — | — |
+
+### What must happen before any real scheme appears
+
+No internet research against official government sources has been done in this phase, so no
+real scheme has been entered, and none has been cited. Phase 2 is where a person:
+
+- identifies candidate schemes and locates each responsible department's own page,
+- records the published criteria verbatim, with the URL and the date checked,
+- authors and hand-checks the rules,
+- and signs off as reviewer.
+
+Until then the public catalogue is empty, which is the correct and honest state.

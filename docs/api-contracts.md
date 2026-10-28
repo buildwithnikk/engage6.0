@@ -8,13 +8,20 @@ Interactive docs while the backend runs: `http://localhost:8000/docs`
 | Endpoint | Method | Status |
 |---|---|---|
 | `/api/v1/health` | GET | **Implemented (Phase 0)** |
-| `/api/v1/schemes` | GET | Planned — Phase 1 |
-| `/api/v1/schemes/{slug}` | GET | Planned — Phase 1 |
-| `/api/v1/eligibility/check` | POST | Planned — Phase 1 |
+| `/api/v1/schemes` | GET | **Implemented (Phase 1)** |
+| `/api/v1/schemes/{scheme_id}` | GET | **Implemented (Phase 1)** — accepts UUID *or* slug |
+| `/api/v1/eligibility/check` | POST | **Implemented (Phase 1)** |
 
-Only the health endpoint exists. The planned rows below are a design sketch, deliberately not
-registered in the router — `backend/tests/integration/test_health.py` asserts that
-`/api/v1/schemes` and `/api/v1/eligibility` return 404, so Phase 1 cannot start by accident.
+That is the whole public API.
+`backend/tests/integration/test_health.py::test_openapi_documents_exactly_the_phase_1_surface`
+asserts this exact list, so a new endpoint cannot appear without the list changing — and
+`test_no_phase_2_endpoint_is_exposed_yet` asserts that `/documents`, `/complaints`, `/profiles`
+and `/auth` still 404.
+
+**The visibility rule, which applies to all three scheme endpoints:** a public caller sees
+`review_status = 'verified'` records only. Draft and needs-review rows are unchecked research.
+A hidden record returns **404**, never 403, so a caller cannot distinguish "exists but hidden"
+from "does not exist".
 
 ---
 
@@ -113,80 +120,147 @@ curl -s -i -X OPTIONS http://localhost:8000/api/v1/health \
 
 ---
 
-## Planned — Phase 1 (not implemented)
+## GET /api/v1/schemes — implemented
 
-Sketches only, recorded so the frontend types and the Python services are designed against the
-same shape. None of this is registered, and nothing should be built against it until Phase 1
-opens in `phase-plan.md`.
+**Query parameters**
 
-### GET /api/v1/schemes
+| Name | Type | Default | Notes |
+|---|---|---|---|
+| `q` | string ≤100 | — | Free text over official name, benefit summary and department. LIKE wildcards in the input are escaped, so `%` searches for a percent sign. |
+| `jurisdiction` | `central` \| `state` | — | 422 on any other value. |
+| `state_code` | string ≤10 | — | Case-insensitive. **Also returns central schemes**, which apply everywhere — hiding them would mislead. |
+| `review_status` | enum | — | Can only *narrow* the public set. Asking for `draft` without permission returns an empty page, not a 403. |
+| `page` | int ≥1 | 1 | |
+| `page_size` | int 1–100 | 20 | 422 outside the range. |
 
-Lists **verified** schemes only (`review_status = 'verified'`).
-
-Query: `state_code`, `q`, `limit` (default 20, max 100), `offset`.
+**Response `200`**
 
 ```json
 {
   "items": [
     {
-      "slug": "example-scheme",
-      "official_name": "…",
-      "department": "…",
-      "jurisdiction": "central",
-      "state_code": null,
-      "benefit_summary": "…",
-      "required_documents": ["…"],
-      "official_apply_url": "https://…gov.in/…",
-      "source_url": "https://…gov.in/…",
-      "verified_at": "2026-01-01T00:00:00Z",
+      "id": "0e37df36-f698-11e6-8dd4-cb9ced3df976",
+      "slug": "demo-study-support-allowance",
+      "official_name": "DEMO — Study Support Allowance (synthetic sample)",
+      "department": "Demo Department of Education (fictional)",
+      "jurisdiction": "state",
+      "state_code": "UP",
+      "benefit_summary": "SYNTHETIC DEMO RECORD. Illustrative only.",
+      "required_documents": ["Identity proof (demo)"],
+      "official_apply_url": null,
+      "source_url": "https://example.gov.in/synthetic-demo-scheme",
+      "review_status": "draft",
+      "verified_at": null,
       "rules_version": "1"
     }
   ],
   "total": 1,
-  "limit": 20,
-  "offset": 0
+  "page": 1,
+  "page_size": 20
 }
 ```
 
-`eligibility_rules` is not exposed in the list response. Rules are an implementation detail of
-the engine; publishing them invites clients to reimplement eligibility and disagree with us.
+Ordering is `official_name, id` — the `id` tiebreak gives a total order, without which a row
+can appear on two pages or on none.
 
-### POST /api/v1/eligibility/check
+`eligibility_rules` is **not** exposed. Rules belong to the evaluator; publishing them invites
+clients to reimplement eligibility and then disagree with us.
 
-**Stateless.** The answer is computed from the request body and nothing is persisted — no
-profile row, no answer row. See `privacy.md`.
+```bash
+curl -s "http://localhost:8000/api/v1/schemes?q=allowance&page_size=5" | python3 -m json.tool
+```
+
+---
+
+## GET /api/v1/schemes/{scheme_id} — implemented
+
+`scheme_id` is a **UUID or a slug**. (Phase 0 sketched `{slug}` and the Phase 1 brief said
+`{scheme_id}`; accepting both reconciles them.)
+
+Returns a `SchemeSummary` plus:
+
+| Field | Meaning |
+|---|---|
+| `required_facts` | The questions the eligibility check needs: `{fact, kind, requirements[], choices[]}`. Drives the questionnaire, so the client never hardcodes rule vocabulary. |
+| `rules_readable` | `false` when this build cannot parse the stored rules. The UI then explains instead of showing a form. |
+
+`404` when no such scheme exists **or** it is not publicly visible.
+
+```bash
+curl -s http://localhost:8000/api/v1/schemes/demo-study-support-allowance | python3 -m json.tool
+```
+
+---
+
+## POST /api/v1/eligibility/check — implemented
+
+**Stateless.** Answers are used to compute the response and then discarded — no row written,
+no answer logged. `tests/integration/test_eligibility_api.py::TestStatelessness` asserts it,
+including that no table exists which *could* hold answers.
+
+**Request**
 
 ```json
 {
-  "answers": { "age": 37, "annual_income": 96000, "state_code": "UP", "category": "OBC" },
-  "scheme_slugs": ["example-scheme"]
+  "scheme_id": "demo-study-support-allowance",
+  "answers": { "age": 19, "annual_income": 96000, "state_code": "UP", "is_student": true }
 }
 ```
 
+`extra="forbid"`: an unknown top-level field is a 422, so a client cannot quietly ask for
+something the contract does not offer. Omit a fact the citizen has not answered — do not send
+an empty string, because absent and blank must stay distinguishable.
+
+**Response `200`**
+
 ```json
 {
-  "rules_version": "1",
-  "evaluated_at": "2026-01-01T00:00:00Z",
-  "results": [
+  "scheme_id": "0e37df36-f698-11e6-8dd4-cb9ced3df976",
+  "scheme_slug": "demo-study-support-allowance",
+  "official_name": "DEMO — Study Support Allowance (synthetic sample)",
+  "outcome": "needs_more_information",
+  "summary": "We cannot decide yet. 2 questions still unanswered.",
+  "met": [
     {
-      "slug": "example-scheme",
-      "outcome": "eligible",
-      "matched": ["annual_income <= 250000", "state_code == UP"],
-      "unmet": [],
-      "missing_answers": [],
-      "missing_documents": ["income_certificate"]
+      "fact": "age", "type": "age_min", "status": "met",
+      "requirement": "Age must be at least 16",
+      "explanation": "You are 19; the minimum is 16."
     }
   ],
-  "disclaimer": "Indicative only. Not an official eligibility determination."
+  "failed": [],
+  "unknown": [],
+  "missing_facts": ["annual_income", "state_code"],
+  "rules_version": "1",
+  "source_url": "https://example.gov.in/synthetic-demo-scheme",
+  "official_apply_url": null,
+  "review_status": "draft",
+  "evaluated_at": "2026-10-28T12:00:00+00:00",
+  "disclaimer": "This is an informational estimate ... not an official decision."
 }
 ```
 
-`outcome` is `eligible | not_eligible | insufficient_information`. The third value matters:
-a missing answer must never be silently treated as a pass or a fail.
+`outcome` is `eligible`, `ineligible` or `needs_more_information`. The third is returned when
+a required fact is missing, when the rules cannot be read, and when a scheme has no rules
+recorded. **A missing answer is never treated as a pass.** Full semantics:
+[eligibility-rules.md](eligibility-rules.md).
 
-**Design rules carried into Phase 1**
+| Code | When |
+|---|---|
+| `200` | Evaluated, including the `needs_more_information` case |
+| `404` | No such scheme, or not publicly visible |
+| `422` | Malformed body, unknown field, or a non-scalar answer value |
+| `503` | `DATABASE_URL` is not configured — stated plainly rather than returning an empty catalogue |
 
-1. Eligibility is evaluated by deterministic Python rules, never by a language model.
-2. Every response states its `rules_version`, so a result can be reproduced.
-3. `matched` and `unmet` make the outcome explainable rather than an opaque verdict.
-4. The disclaimer is part of the contract, not UI decoration.
+```bash
+curl -s -X POST http://localhost:8000/api/v1/eligibility/check \
+  -H 'content-type: application/json' \
+  -d '{"scheme_id":"demo-study-support-allowance","answers":{"age":19}}' | python3 -m json.tool
+```
+
+---
+
+## Planned — later phases (not implemented)
+
+Documents, complaints, profiles and authentication are gated in
+[phase-plan.md](phase-plan.md). Nothing is registered for them, and a test asserts those paths
+return 404.

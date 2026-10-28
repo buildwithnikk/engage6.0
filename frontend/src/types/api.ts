@@ -42,3 +42,92 @@ export class ApiError extends Error {
     this.status = status;
   }
 }
+
+/* ------------------------------------------------------------------ Phase 1 */
+
+export type ReviewStatus = "draft" | "needs_review" | "verified" | "archived";
+export type Jurisdiction = "central" | "state";
+
+/**
+ * Mirrors backend `SchemeSummary`.
+ *
+ * `eligibility_rules` is intentionally absent from the API: rules belong to the
+ * evaluator, and a second implementation in the browser would eventually
+ * disagree with it. The questionnaire is driven by `required_facts` instead.
+ */
+export type SchemeSummary = {
+  id: string;
+  slug: string;
+  official_name: string;
+  department: string;
+  jurisdiction: Jurisdiction;
+  state_code: string | null;
+  benefit_summary: string;
+  required_documents: string[];
+  official_apply_url: string | null;
+  source_url: string;
+  review_status: ReviewStatus;
+  verified_at: string | null;
+  rules_version: string;
+};
+
+/** One question the eligibility form must ask, derived server-side from the rules. */
+export type FactRequirement = {
+  fact: string;
+  kind: "integer" | "boolean" | "choice" | "text";
+  requirements: string[];
+  choices: string[];
+};
+
+export type SchemeDetail = SchemeSummary & {
+  required_facts: FactRequirement[];
+  /** False when the backend cannot parse the stored rules; no check is possible. */
+  rules_readable: boolean;
+};
+
+export type SchemeListResponse = {
+  items: SchemeSummary[];
+  total: number;
+  page: number;
+  page_size: number;
+};
+
+export type SchemeQuery = {
+  q?: string;
+  jurisdiction?: Jurisdiction | "";
+  state_code?: string;
+  page?: number;
+  page_size?: number;
+};
+
+export type EligibilityOutcome = "eligible" | "ineligible" | "needs_more_information";
+export type ConditionStatus = "met" | "failed" | "unknown";
+
+export type ConditionOutcome = {
+  fact: string;
+  type: string;
+  status: ConditionStatus;
+  requirement: string;
+  explanation: string;
+};
+
+/** Answer values the questionnaire can produce. */
+export type AnswerValue = string | number | boolean | null;
+
+export type EligibilityResponse = {
+  scheme_id: string;
+  scheme_slug: string;
+  official_name: string;
+  outcome: EligibilityOutcome;
+  summary: string;
+  met: ConditionOutcome[];
+  failed: ConditionOutcome[];
+  unknown: ConditionOutcome[];
+  missing_facts: string[];
+  rules_version: string;
+  source_url: string;
+  official_apply_url: string | null;
+  review_status: ReviewStatus;
+  evaluated_at: string;
+  disclaimer: string;
+};

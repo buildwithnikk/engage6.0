@@ -15,6 +15,10 @@ import pytest
 
 from app.core import config
 
+#: Makes the database fixtures (engine, db_session, client) available everywhere
+#: without importing them by name, which would shadow the fixtures in each module.
+pytest_plugins = ["tests.db_fixtures"]
+
 
 @pytest.fixture(autouse=True, scope="session")
 def _ignore_dotenv_file():

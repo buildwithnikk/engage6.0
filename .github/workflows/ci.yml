@@ -12,6 +12,28 @@ jobs:
     defaults:
       run:
         working-directory: backend
+
+    # Without a real database the 55 integration tests skip, and CI goes green
+    # while never exercising the catalogue, the visibility rules or the
+    # constraints. A service container keeps the suite honest.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: sahayak_app
+          POSTGRES_PASSWORD: ci_only_not_a_secret
+          POSTGRES_DB: sahayak_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://sahayak_app:ci_only_not_a_secret@localhost:5432/sahayak_test
+
     steps:
       - uses: actions/checkout@v4
 
@@ -26,12 +48,34 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
+      - name: Apply migrations to the test database
+        run: |
+          for f in ../supabase/migrations/*.sql; do
+            case "$f" in *.down.sql) continue ;; esac
+            echo "applying $(basename "$f")"
+            psql "postgresql://sahayak_app:ci_only_not_a_secret@localhost:5432/sahayak_test" \
+              -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+
       - name: Lint
         run: ruff check .
 
+      - name: Format check
+        run: ruff format --check .
+
       - name: Tests
-        # No DATABASE_URL on purpose: the suite asserts the app runs without one.
-        run: pytest
+        # No DATABASE_URL on purpose: the suite asserts the app runs without one,
+        # and the integration tests use TEST_DATABASE_URL above.
+        run: pytest -q
+
+      - name: Fail if integration tests silently skipped
+        # A green run that skipped the database tests is worse than a red one,
+        # because it looks like coverage.
+        run: |
+          if pytest -q -rs 2>&1 | grep -q "No test database configured"; then
+            echo "::error::Integration tests skipped — the database service was not reachable."
+            exit 1
+          fi
 
   frontend:
     name: Frontend — typecheck and build

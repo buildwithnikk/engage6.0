@@ -30,7 +30,8 @@ export default function HomePage() {
           <Item done>FastAPI service with a versioned <code>/api/v1</code> router</Item>
           <Item done>Health endpoint reporting the real database connection state</Item>
           <Item done>Architecture, API, schema, phase and privacy documentation</Item>
-          <Item>Scheme catalogue and eligibility engine — Phase 1, in Python</Item>
+          <Item done>Scheme catalogue, searchable and filterable</Item>
+          <Item done>Deterministic eligibility evaluator with explained results</Item>
           <Item>Document understanding and form preparation — later phase</Item>
           <Item>Civic complaint tracking — later phase</Item>
         </ul>
